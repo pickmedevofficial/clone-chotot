@@ -11,11 +11,11 @@ Không có thanh toán, giỏ hàng, đăng nhập hay máy chủ/cơ sở dữ 
 ## Chạy dự án
 
 ```bash
-npm install
-npm run dev     # chạy môi trường phát triển tại http://localhost:3000
-npm test        # chạy unit test (Vitest)
-npm run lint    # kiểm tra ESLint
-npm run build   # build bản production
+pnpm install
+pnpm dev         # chạy môi trường phát triển tại http://localhost:3000
+pnpm test        # chạy unit test (Vitest)
+pnpm lint        # kiểm tra ESLint
+pnpm build       # build bản production
 ```
 
 ## Dữ liệu
