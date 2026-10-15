@@ -28,3 +28,17 @@ export function parsePrice(input: string): number | null {
   if (!PRICE_PATTERN.test(text)) return null;
   return Number(text.replace(/[. ]/g, ""));
 }
+
+/** "Đăng 3 giờ trước"-style; quá 30 ngày thì hiện ngày cụ thể. */
+export function formatRelativeTime(iso: string, now: number = Date.now()): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const minutes = Math.floor((now - t) / 60_000);
+  if (minutes < 1) return "vừa xong";
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days <= 30) return `${days} ngày trước`;
+  return dateFormatter.format(t);
+}
