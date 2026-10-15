@@ -12,11 +12,17 @@ export function normalize(text: string): string {
     .trim();
 }
 
-/** Lọc theo danh mục và từ khóa; mọi từ trong truy vấn đều phải xuất hiện. */
-export function filterProducts(products: Product[], query: string, categoryId: string | null): Product[] {
+/** Lọc theo danh mục, khu vực và từ khóa; mọi từ trong truy vấn đều phải xuất hiện. */
+export function filterProducts(
+  products: Product[],
+  query: string,
+  categoryId: string | null,
+  location: string | null = null,
+): Product[] {
   const terms = normalize(query).split(/\s+/).filter(Boolean);
   return products.filter((p) => {
     if (categoryId && p.categoryId !== categoryId) return false;
+    if (location && p.location !== location) return false;
     if (terms.length === 0) return true;
     const haystack = normalize(`${p.title} ${p.description} ${p.location} ${getCategoryName(p.categoryId)}`);
     return terms.every((t) => haystack.includes(t));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPrice, parsePrice } from "./format";
+import { formatPrice, formatRelativeTime, parsePrice } from "./format";
 
 describe("parsePrice", () => {
   it.each([
@@ -20,5 +20,19 @@ describe("parsePrice", () => {
 describe("formatPrice", () => {
   it("định dạng vi-VN + đ", () => {
     expect(formatPrice(1_500_000)).toBe("1.500.000 đ");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const now = Date.parse("2026-10-15T12:00:00.000Z");
+  it.each([
+    ["2026-10-15T11:59:30.000Z", "vừa xong"],
+    ["2026-10-15T11:15:00.000Z", "45 phút trước"],
+    ["2026-10-15T07:00:00.000Z", "5 giờ trước"],
+    ["2026-10-13T12:00:00.000Z", "2 ngày trước"],
+    ["2026-08-01T12:00:00.000Z", "01/08/2026"],
+    ["không phải ngày", ""],
+  ])("%s → %j", (iso, expected) => {
+    expect(formatRelativeTime(iso, now)).toBe(expected);
   });
 });

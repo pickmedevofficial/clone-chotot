@@ -26,18 +26,19 @@ interface ProductFeedProps {
   products: Product[];
   query: string;
   categoryId: string | null;
+  location: string | null;
   onClearFilters: () => void;
 }
 
-export default function ProductFeed({ products, query, categoryId, onClearFilters }: ProductFeedProps) {
+export default function ProductFeed({ products, query, categoryId, location, onClearFilters }: ProductFeedProps) {
   const [tab, setTab] = useState<Tab>("for-you");
 
   const visible = useMemo(() => {
     const ordered = tab === "newest" ? products : forYouOrder(products);
-    return filterProducts(ordered, query, categoryId);
-  }, [products, tab, query, categoryId]);
+    return filterProducts(ordered, query, categoryId, location);
+  }, [products, tab, query, categoryId, location]);
 
-  const hasFilter = query.trim() !== "" || categoryId !== null;
+  const hasFilter = query.trim() !== "" || categoryId !== null || location !== null;
 
   return (
     <section id="tin-dang" aria-labelledby="tin-dang-heading" className="scroll-mt-28 rounded-lg bg-surface p-4">
@@ -67,6 +68,11 @@ export default function ProductFeed({ products, query, categoryId, onClearFilter
             {categoryId && (
               <>
                 {" "}trong <strong className="text-foreground">{getCategoryName(categoryId)}</strong>
+              </>
+            )}
+            {location && (
+              <>
+                {" "}tại <strong className="text-foreground">{location}</strong>
               </>
             )}
             {query.trim() && (

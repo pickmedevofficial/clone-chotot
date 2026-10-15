@@ -41,4 +41,8 @@ describe("filterProducts", () => {
   it("truy vấn rỗng trả về tất cả", () => {
     expect(filterProducts(items, "   ", null)).toHaveLength(3);
   });
+  it("lọc theo khu vực, kết hợp với danh mục", () => {
+    expect(ids(filterProducts(items, "", null, "Hà Nội"))).toEqual(["a", "c"]);
+    expect(ids(filterProducts(items, "", "xe-co", "Hà Nội"))).toEqual(["c"]);
+  });
 });
