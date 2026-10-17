@@ -12,7 +12,17 @@ describe("parsePrice", () => {
     expect(parsePrice(input)).toBe(expected);
   });
 
-  it.each(["-5", "1,5", "1.5", "abc", "1,5 triệu", "", "1.500 000", "15.00", "1e6"])("%j → không hợp lệ", (input) => {
+  it.each([
+    "-5",
+    "1,5",
+    "1.5",
+    "abc",
+    "1,5 triệu",
+    "",
+    "1.500 000",
+    "15.00",
+    "1e6",
+  ])("%j → không hợp lệ", (input) => {
     expect(parsePrice(input)).toBeNull();
   });
 });

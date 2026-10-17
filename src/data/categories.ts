@@ -1,27 +1,98 @@
-import type { Category } from "@/types/product";
-
+import type { Category } from "@/types/shop";
 export const CATEGORIES: Category[] = [
-  { id: "bat-dong-san", name: "Bất động sản", icon: "🏠" },
-  { id: "xe-co", name: "Xe cộ", icon: "🛵" },
-  { id: "do-dien-tu", name: "Đồ điện tử", icon: "📱" },
-  { id: "thu-cung", name: "Thú cưng", icon: "🐶" },
-  { id: "viec-lam", name: "Việc làm", icon: "💼" },
-  { id: "do-gia-dung", name: "Đồ gia dụng", icon: "🛋️" },
-  { id: "thoi-trang", name: "Thời trang", icon: "👗" },
-  { id: "dich-vu", name: "Dịch vụ", icon: "🛠️" },
+  {
+    id: "dau-goi",
+    name: "Dầu gội đầu",
+    shortName: "HAIR CARE",
+    icon: "🧴",
+    color: "#153e75",
+  },
+  {
+    id: "xit-khu-mui",
+    name: "Xịt khử mùi",
+    shortName: "BODY SPRAY",
+    icon: "💨",
+    color: "#334155",
+  },
+  {
+    id: "sua-rua-mat",
+    name: "Sữa rửa mặt",
+    shortName: "FACE WASH",
+    icon: "🫧",
+    color: "#047857",
+  },
+  {
+    id: "kem-chong-nang",
+    name: "Kem chống nắng",
+    shortName: "SUN CARE",
+    icon: "☀️",
+    color: "#2563eb",
+  },
+  {
+    id: "ve-sinh-nam",
+    name: "Vệ sinh nam",
+    shortName: "INTIMATE CARE",
+    icon: "💧",
+    color: "#0e7490",
+  },
+  {
+    id: "lan-khu-mui",
+    name: "Lăn khử mùi",
+    shortName: "DEODORANT",
+    icon: "🧊",
+    color: "#4338ca",
+  },
+  {
+    id: "sua-tam",
+    name: "Sữa tắm",
+    shortName: "BODY WASH",
+    icon: "🚿",
+    color: "#155e75",
+  },
+  {
+    id: "cham-soc-rau",
+    name: "Chăm sóc râu",
+    shortName: "SHAVE & GROOM",
+    icon: "🪒",
+    color: "#3f3f46",
+  },
 ];
-
-export const LOCATIONS = [
-  "Tp Hồ Chí Minh",
+export const PROVINCES = [
   "Hà Nội",
+  "TP Hồ Chí Minh",
   "Đà Nẵng",
   "Hải Phòng",
   "Cần Thơ",
-  "Bình Dương",
+  "Huế",
+  "An Giang",
+  "Bắc Ninh",
+  "Cà Mau",
+  "Cao Bằng",
+  "Đắk Lắk",
+  "Điện Biên",
   "Đồng Nai",
+  "Đồng Tháp",
+  "Gia Lai",
+  "Hà Tĩnh",
+  "Hưng Yên",
   "Khánh Hòa",
+  "Lai Châu",
+  "Lâm Đồng",
+  "Lạng Sơn",
+  "Lào Cai",
+  "Nghệ An",
+  "Ninh Bình",
+  "Phú Thọ",
+  "Quảng Ngãi",
+  "Quảng Ninh",
+  "Quảng Trị",
+  "Sơn La",
+  "Tây Ninh",
+  "Thái Nguyên",
+  "Thanh Hóa",
+  "Tuyên Quang",
+  "Vĩnh Long",
 ];
-
 export function getCategoryName(id: string): string {
-  return CATEGORIES.find((c) => c.id === id)?.name ?? "Khác";
+  return CATEGORIES.find((c) => c.id === id)?.name ?? "Sản phẩm";
 }

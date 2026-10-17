@@ -10,10 +10,11 @@ const beVietnam = Be_Vietnam_Pro({
 
 export const metadata: Metadata = {
   title: {
-    default: "ChợMới — Mua bán, rao vặt",
-    template: "%s | ChợMới",
+    default: "MEN / DAILY — Chăm sóc nam mỗi ngày",
+    template: "%s | MEN / DAILY",
   },
-  description: "ChợMới — trang rao vặt mô phỏng: mua bán đồ cũ, xe cộ, bất động sản, việc làm.",
+  description:
+    "Cửa hàng chăm sóc nam: dầu gội, sữa rửa mặt, khử mùi, chống nắng và chăm sóc râu. Khám phá thương hiệu và đặt hàng dễ dàng.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

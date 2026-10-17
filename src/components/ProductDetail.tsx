@@ -1,108 +1,179 @@
 "use client";
-
-import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PRODUCTS, PRODUCT_MAP } from "@/data/products";
 import { getCategoryName } from "@/data/categories";
-import { formatDate, formatPrice } from "@/lib/format";
-import { findProduct, useIsClient, useProducts } from "@/lib/product-store";
-import type { Product } from "@/types/product";
+import { addToCart } from "@/lib/commerce-store";
+import { formatPrice } from "@/lib/format";
+import ProductVisual from "./ProductVisual";
+import ProductCard from "./ProductCard";
+import QuantityControl from "./QuantityControl";
+import { Icon } from "./Icons";
 
-const CONDITION_LABEL: Record<Product["condition"], string> = {
-  moi: "Mới",
-  "da-su-dung": "Đã sử dụng",
-};
-
-function Gallery({ product }: { product: Product }) {
-  const [index, setIndex] = useState(0);
-  const images = product.images;
-  const current = images[Math.min(index, images.length - 1)];
-
-  if (!current)
-    return (
-      <div className="flex aspect-[4/3] items-center justify-center rounded-lg bg-background text-muted">
-        Chưa có ảnh
-      </div>
-    );
-
-  return (
-    <div className="min-w-0">
-      <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-black">
-        <Image
-          src={current}
-          alt={`${product.title} — ảnh ${index + 1}/${images.length}`}
-          fill
-          sizes="(min-width: 768px) 600px, 100vw"
-          className="object-contain"
-          priority
-        />
-      </div>
-      {images.length > 1 && (
-        <ul className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label="Ảnh sản phẩm">
-          {images.map((src, i) => (
-            <li key={`${i}-${src.slice(0, 40)}`} className="shrink-0">
-              <button
-                type="button"
-                onClick={() => setIndex(i)}
-                aria-label={`Xem ảnh ${i + 1}`}
-                aria-current={i === index}
-                className={`relative block h-16 w-20 overflow-hidden rounded-md ring-2 ${
-                  i === index ? "ring-brand-strong" : "ring-transparent"
-                }`}
-              >
-                <Image src={src} alt={`${product.title} — ảnh thu nhỏ ${i + 1}`} fill sizes="80px" className="object-cover" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+export default function ProductDetail({ id }: { id: string }) {
+  const product = PRODUCT_MAP.get(id);
+  return product ? (
+    <Detail key={id} id={id} />
+  ) : (
+    <div className="panel my-10 py-16 text-center">
+      <h1 className="text-xl font-bold">Không tìm thấy sản phẩm</h1>
+      <p className="my-4 text-sm text-muted">
+        Sản phẩm này không còn trong danh mục.
+      </p>
+      <Link className="btn-primary" href="/">
+        Khám phá cửa hàng
+      </Link>
     </div>
   );
 }
-
-export default function ProductDetail({ id }: { id: string }) {
-  const products = useProducts();
-  const isClient = useIsClient();
-  const product = findProduct(products, id);
-
-  if (!product) {
-    // Trước khi hydrate chỉ có mock data; tin của người dùng chưa đọc được từ localStorage.
-    if (!isClient) return <p className="py-16 text-center text-muted">Đang tải...</p>;
-    return (
-      <div className="rounded-lg bg-surface px-4 py-16 text-center">
-        <h1 className="mb-3 text-xl font-semibold">Không tìm thấy tin đăng</h1>
-        <p className="mb-6 text-muted">Tin có thể đã bị xóa hoặc đường dẫn không đúng.</p>
-        <Link href="/" className="rounded-md bg-brand px-5 py-2.5 font-semibold hover:brightness-95">
-          Về trang chủ
-        </Link>
-      </div>
-    );
+function Detail({ id }: { id: string }) {
+  const product = PRODUCT_MAP.get(id)!;
+  const router = useRouter();
+  const [quantity, setQuantity] = useState(1);
+  const [message, setMessage] = useState("");
+  const siblings = PRODUCTS.filter((p) => p.familyId === product.familyId);
+  const related = PRODUCTS.filter(
+    (p) =>
+      p.categoryId === product.categoryId &&
+      p.packSize === 1 &&
+      p.familyId !== product.familyId,
+  ).slice(0, 5);
+  function add(buyNow: boolean) {
+    const result = addToCart(id, quantity);
+    setMessage(result.ok ? "Đã thêm sản phẩm vào giỏ hàng." : result.error);
+    if (result.ok && buyNow) router.push("/gio-hang");
   }
-
   return (
-    <article className="grid gap-4 rounded-lg bg-surface p-4 md:grid-cols-[3fr_2fr] md:gap-6 md:p-6">
-      <Gallery key={product.id} product={product} />
-      <div className="min-w-0">
-        <nav aria-label="Breadcrumb" className="mb-2 text-xs text-muted">
-          <Link href="/" className="hover:underline">Trang chủ</Link> / {getCategoryName(product.categoryId)}
-        </nav>
-        <h1 className="break-words text-xl font-semibold leading-snug sm:text-2xl">{product.title}</h1>
-        <p className="mt-2 text-2xl font-bold text-price">{formatPrice(product.price)}</p>
-        <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-muted">Tình trạng</dt>
-          <dd>{CONDITION_LABEL[product.condition]}</dd>
-          <dt className="text-muted">Danh mục</dt>
-          <dd>{getCategoryName(product.categoryId)}</dd>
-          <dt className="text-muted">Khu vực</dt>
-          <dd>{product.location}</dd>
-          <dt className="text-muted">Ngày đăng</dt>
-          <dd>{formatDate(product.createdAt)}</dd>
+    <>
+      <nav
+        className="mb-6 mt-2 flex flex-wrap gap-2 text-xs text-muted"
+        aria-label="Breadcrumb"
+      >
+        <Link href="/" className="hover:text-brand">
+          Trang chủ
+        </Link>
+        <span>/</span>
+        <Link
+          href={`/?q=${encodeURIComponent(getCategoryName(product.categoryId))}#san-pham`}
+        >
+          {getCategoryName(product.categoryId)}
+        </Link>
+        <span>/</span>
+        <span>{product.brand}</span>
+      </nav>
+      <article className="grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-line bg-[#eaf0f8]">
+          <div className="absolute h-2/3 w-2/3 rounded-full bg-white/60" />
+          <ProductVisual product={product} className="relative h-4/5 w-4/5" />
+          <span className="absolute bottom-5 text-[11px] text-muted">
+            Bao bì minh họa · Không phải ảnh chính thức của hãng
+          </span>
+        </div>
+        <div className="py-2">
+          <p className="eyebrow mb-4 text-brand">{product.brand}</p>
+          <h1 className="text-2xl font-bold leading-snug sm:text-3xl">
+            {product.name}
+          </h1>
+          <p className="mt-3 text-sm text-muted">
+            {getCategoryName(product.categoryId)}{" "}
+            <span className="mx-2">/</span> {product.size}
+          </p>
+          <div className="mt-6 border-y border-line py-5">
+            <p className="text-3xl font-extrabold text-price">
+              {formatPrice(product.price)}
+            </p>
+            <p className="mt-2 text-xs text-muted">
+              Giá tham khảo{" "}
+              {product.packSize > 1 &&
+                `· ${formatPrice(product.unitPrice)} / sản phẩm`}
+            </p>
+          </div>
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold">Quy cách mua</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {siblings.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/san-pham/${p.id}`}
+                  aria-current={p.id === id ? "page" : undefined}
+                  className={`rounded-lg border px-3 py-2.5 text-xs font-medium ${p.id === id ? "border-brand bg-blue-50 text-brand" : "border-line bg-white hover:border-brand"}`}
+                >
+                  {p.packSize === 1 ? "Mua lẻ" : `Combo ${p.packSize}`}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="mt-6 flex items-center gap-5">
+            <span className="text-sm font-semibold">Số lượng</span>
+            <QuantityControl quantity={quantity} onChange={setQuantity} />
+            <span className="text-xs text-muted">Tối đa 20</span>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              className="btn-secondary border-blue-200! text-brand"
+              onClick={() => add(false)}
+            >
+              <Icon name="cart" />
+              Thêm vào giỏ
+            </button>
+            <button className="btn-primary" onClick={() => add(true)}>
+              Đặt hàng <Icon name="arrow" />
+            </button>
+          </div>
+          <p role="status" className="mt-3 min-h-6 text-sm text-brand">
+            {message}
+          </p>
+          <div className="mt-2 space-y-3 rounded-2xl bg-white p-5 text-xs text-muted">
+            <p className="flex items-center gap-3">
+              <Icon name="truck" className="text-brand" /> Giao tiêu chuẩn miễn
+              phí từ 499.000đ
+            </p>
+            <p className="flex items-center gap-3">
+              <Icon name="bag" className="text-brand" /> Nhập HELLO10: giảm 10%
+              từ 200.000đ, tối đa 100.000đ
+            </p>
+          </div>
+        </div>
+      </article>
+      <section className="panel mt-8">
+        <h2 className="mb-4 text-lg font-bold">Thông tin sản phẩm</h2>
+        <p className="text-sm leading-7 text-muted">{product.description}</p>
+        <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-5 text-sm sm:grid-cols-[160px_1fr]">
+          <dt className="text-muted">Thương hiệu</dt>
+          <dd className="font-medium">{product.brand}</dd>
+          <dt className="text-muted">Quy cách</dt>
+          <dd>
+            {product.packSize} × {product.size}
+          </dd>
+          <dt className="text-muted">Mã sản phẩm</dt>
+          <dd className="break-all font-mono text-xs">{product.id}</dd>
         </dl>
-        <h2 className="mt-6 mb-2 font-semibold">Mô tả chi tiết</h2>
-        <p className="whitespace-pre-line break-words text-sm leading-relaxed">
-          {product.description || "Người bán chưa thêm mô tả."}
-        </p>
-      </div>
-    </article>
+        {product.sourceUrl && (
+          <p className="mt-5 text-xs text-muted">
+            Giá đã tham khảo từ{" "}
+            <a
+              href={product.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand underline"
+            >
+              nhà bán lẻ
+            </a>
+            ; giá demo có thể khác giá đang bán.
+          </p>
+        )}
+      </section>
+      <section className="mt-10">
+        <h2 className="mb-5 text-xl font-bold">Thêm lựa chọn cho bạn</h2>
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {related.map((p) => (
+            <li key={p.id}>
+              <ProductCard product={p} />
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }

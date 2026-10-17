@@ -15,8 +15,10 @@ export default function ProductPage({ params }: PageProps<"/san-pham/[id]">) {
   return (
     <>
       <Header />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-4">
-        <Suspense fallback={<p className="py-16 text-center text-muted">Đang tải...</p>}>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+        <Suspense
+          fallback={<p className="py-16 text-center text-muted">Đang tải...</p>}
+        >
           {params.then(({ id }) => (
             <ProductDetail id={safeDecode(id)} />
           ))}

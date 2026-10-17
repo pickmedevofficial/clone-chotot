@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   images: {
-    // Ảnh mock từ picsum.photos và ảnh người dùng dạng data URL — không qua bộ tối ưu ảnh.
+    // QR local dạng data URL hoặc VietQR; bao bì sản phẩm là SVG inline.
     unoptimized: true,
   },
   turbopack: {
