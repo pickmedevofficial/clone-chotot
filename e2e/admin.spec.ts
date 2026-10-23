@@ -58,11 +58,52 @@ test("admin quản lý đơn, doanh số, khách hàng và sản phẩm", async 
   await goToTab(page, "Đơn hàng");
   await page.getByLabel("Tìm kiếm").fill("MD-DEMO-0001");
   await page.getByRole("button", { name: "MD-DEMO-0001", exact: true }).click();
+  const delivery = page.getByRole("region", { name: "THÔNG TIN NHẬN HÀNG" });
+  for (const label of [
+    "Họ và tên",
+    "Số điện thoại",
+    "Email",
+    "Tỉnh / thành phố",
+    "Phường / xã",
+    "Số nhà, tên đường",
+    "Ghi chú giao hàng",
+  ])
+    await expect(delivery.getByText(label, { exact: true })).toBeVisible();
+  await expect(delivery).toContainText("khach1@example.com");
+  await expect(delivery).toContainText("Phường Bến Nghé");
+  await expect(delivery).not.toContainText("quận / huyện");
+  await delivery.getByRole("button", { name: "Sửa ghi chú giao hàng" }).click();
+  await delivery
+    .getByRole("textbox", { name: "Ghi chú giao hàng", exact: true })
+    .fill("Giao sau 18h");
+  await delivery
+    .getByRole("button", { name: "Xong sửa ghi chú giao hàng" })
+    .click();
+  await expect(
+    delivery.getByRole("textbox", { name: "Ghi chú giao hàng", exact: true }),
+  ).toBeHidden();
+  await expect(delivery).toContainText("Đã sửa · chưa lưu");
+  await delivery.getByRole("button", { name: "Sửa phường / xã" }).click();
+  await delivery
+    .getByRole("textbox", { name: "Phường / xã", exact: true })
+    .fill("Phường Tân Định");
+  await delivery
+    .getByRole("textbox", { name: "Phường / xã", exact: true })
+    .press("Enter");
+  await expect(
+    delivery.getByRole("textbox", { name: "Phường / xã", exact: true }),
+  ).toBeHidden();
   await page.getByLabel("Trạng thái đơn").selectOption("completed");
   await page.getByLabel("Nhân viên phụ trách").selectOption("NV02");
   await page.getByRole("button", { name: "Lưu thay đổi" }).click();
   await expect(page.locator("tbody tr")).toContainText("Hoàn tất");
   await page.reload();
+  await goToTab(page, "Đơn hàng");
+  await page.getByLabel("Tìm kiếm").fill("MD-DEMO-0001");
+  await page.getByRole("button", { name: "MD-DEMO-0001", exact: true }).click();
+  await expect(delivery).toContainText("Giao sau 18h");
+  await expect(delivery).toContainText("Phường Tân Định");
+  await page.getByRole("button", { name: "Đóng", exact: true }).first().click();
   await goToTab(page, "Khách hàng");
   await page.getByRole("button", { name: "+ Thêm khách hàng" }).click();
   await page.getByLabel("Họ và tên").fill("Khách kiểm thử");

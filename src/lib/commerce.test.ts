@@ -17,7 +17,6 @@ const buyer = {
   phone: "0912345678",
   email: "",
   province: "Hà Nội",
-  district: "Cầu Giấy",
   ward: "Dịch Vọng",
   address: "12 Trần Thái Tông",
   note: "",

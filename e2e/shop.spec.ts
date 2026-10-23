@@ -13,7 +13,6 @@ async function fillBuyer(page: Page) {
   await page.getByLabel("Họ và tên").fill("Nguyễn Văn Nam");
   await page.getByLabel("Số điện thoại").fill("0912345678");
   await page.getByLabel("Tỉnh / thành phố").fill("Hà Nội");
-  await page.getByLabel("Khu vực / quận / huyện").fill("Cầu Giấy");
   await page.getByLabel("Phường / xã").fill("Dịch Vọng");
   await page.getByLabel("Số nhà, tên đường").fill("12 Trần Thái Tông");
   await page.getByRole("checkbox").check();
@@ -93,7 +92,7 @@ test("đặt hàng chuyển khoản với ship nhanh, voucher và QR; tải lạ
     page.getByRole("img", { name: /QR minh họa đơn/ }),
   ).toBeVisible();
   await expect(
-    page.getByText("12 Trần Thái Tông, Dịch Vọng, Cầu Giấy, Hà Nội"),
+    page.getByText("12 Trần Thái Tông, Dịch Vọng, Hà Nội"),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("order.png"),

@@ -16,10 +16,18 @@ export interface Customer {
   email: string;
   address: string;
 }
+export interface Delivery {
+  province: string;
+  ward: string;
+  street: string;
+  note: string;
+}
 export interface AdminOrder {
   id: string;
   createdAt: string;
   customer: Customer;
+  /** Thông tin giao hàng tách theo từng trường; dữ liệu cũ có thể chưa có. */
+  delivery?: Delivery;
   employeeId: string;
   status: AdminStatus;
   items: { title: string; quantity: number; price: number }[];
@@ -31,7 +39,16 @@ export interface AdminData {
   customers: Customer[];
   orders: AdminOrder[];
   overrides: Record<string, { price: number; stock: number; active: boolean }>;
-  orderUpdates: Record<string, { status: AdminStatus; employeeId: string }>;
+  orderUpdates: Record<
+    string,
+    {
+      status: AdminStatus;
+      employeeId: string;
+      /** Thông tin nhận hàng đã được admin chỉnh sửa (nếu có). */
+      customer?: Customer;
+      delivery?: Delivery;
+    }
+  >;
 }
 export const STATUS_LABELS: Record<AdminStatus, string> = {
   pending: "Chờ xác nhận",
@@ -87,14 +104,15 @@ export function mergeOrders(
       name: o.buyer.name,
       phone: o.buyer.phone,
       email: o.buyer.email,
-      address: [
-        o.buyer.address,
-        o.buyer.ward,
-        o.buyer.district,
-        o.buyer.province,
-      ]
+      address: [o.buyer.address, o.buyer.ward, o.buyer.province]
         .filter(Boolean)
         .join(", "),
+    },
+    delivery: {
+      province: o.buyer.province,
+      ward: o.buyer.ward,
+      street: o.buyer.address,
+      note: o.buyer.note,
     },
     employeeId: "",
     status: "pending",
@@ -113,6 +131,19 @@ export function mergeOrders(
     .map((o) => ({ ...o, ...data.orderUpdates[o.id] }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
+const DEMO_WARDS = [
+  "Phường Bến Nghé",
+  "Phường Thảo Điền",
+  "Phường Tân Định",
+  "Phường 7",
+];
+const DEMO_NOTES = [
+  "",
+  "Gọi trước khi giao",
+  "Giao giờ hành chính",
+  "",
+  "Để ở quầy lễ tân",
+];
 export function seedAdmin(): AdminData {
   const employees: Employee[] = [
     {
@@ -165,17 +196,24 @@ export function seedAdmin(): AdminData {
     name,
     phone: `0900000${String(i + 201).padStart(3, "0")}`,
     email: `khach${i + 1}@example.com`,
-    address: `${12 + i} Đường số ${i + 1}, TP. Hồ Chí Minh`,
+    address: `${12 + i} Đường số ${i + 1}, ${DEMO_WARDS[i % DEMO_WARDS.length]}, TP. Hồ Chí Minh`,
   }));
   const orders: AdminOrder[] = Array.from({ length: 36 }, (_, i) => {
     const p = PRODUCTS[(i * 13) % PRODUCTS.length];
     const quantity = (i % 3) + 1;
+    const c = i % customers.length;
     return {
       id: `MD-DEMO-${String(i + 1).padStart(4, "0")}`,
       createdAt: new Date(
         Date.UTC(2026, 9, 23 - Math.floor(i / 2), 8 + (i % 8)),
       ).toISOString(),
-      customer: customers[i % customers.length],
+      customer: customers[c],
+      delivery: {
+        province: "TP. Hồ Chí Minh",
+        ward: DEMO_WARDS[c % DEMO_WARDS.length],
+        street: `${12 + c} Đường số ${c + 1}`,
+        note: DEMO_NOTES[i % DEMO_NOTES.length],
+      },
       employeeId: employees[i % 4].id,
       status:
         i < 4

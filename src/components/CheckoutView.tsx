@@ -20,7 +20,6 @@ const EMPTY_BUYER: Buyer = {
   phone: "",
   email: "",
   province: "",
-  district: "",
   ward: "",
   address: "",
   note: "",
@@ -65,17 +64,10 @@ const fields: {
     required: true,
   },
   {
-    key: "district",
-    label: "Khu vực / quận / huyện",
-    placeholder: "Khu vực nhận hàng",
-    autoComplete: "address-level2",
-    required: true,
-  },
-  {
     key: "ward",
     label: "Phường / xã",
     placeholder: "Nhập phường / xã",
-    autoComplete: "address-level3",
+    autoComplete: "address-level2",
     required: true,
   },
   {

@@ -70,7 +70,7 @@ export default function CartView() {
               {lines.map((line) => (
                 <li
                   key={line.productId}
-                  className="grid grid-cols-[76px_1fr] items-center gap-4 p-4 sm:grid-cols-[1fr_120px_140px] sm:p-5"
+                  className="grid grid-cols-[auto_1fr] items-center gap-4 p-4 sm:grid-cols-[1fr_120px_140px] sm:p-5"
                 >
                   <div className="col-span-2 flex min-w-0 items-center gap-4 sm:col-span-1">
                     <Link

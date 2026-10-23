@@ -136,7 +136,7 @@ export function validateBuyer(
     errors.phone = "Nhập số điện thoại Việt Nam hợp lệ";
   if (buyer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyer.email.trim()))
     errors.email = "Email chưa đúng định dạng";
-  for (const key of ["province", "district", "ward", "address"] as const) {
+  for (const key of ["province", "ward", "address"] as const) {
     if (!buyer[key].trim() || buyer[key].length > 250)
       errors[key] = "Nhập đầy đủ thông tin (tối đa 250 ký tự)";
   }
@@ -213,7 +213,6 @@ export function parseOrders(raw: string | null): Order[] {
           "phone",
           "email",
           "province",
-          "district",
           "ward",
           "address",
           "note",

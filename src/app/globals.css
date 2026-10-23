@@ -276,6 +276,99 @@
   padding: 24px;
   box-shadow: 0 24px 80px #02061733;
 }
+/* Popup chi tiết đơn: rộng hơn, chia 2 cột */
+.admin-modal-wide {
+  max-width: 960px;
+}
+.admin-modal-heading {
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #617087;
+}
+.admin-detail-list {
+  display: grid;
+  gap: 10px;
+}
+.admin-detail-list > div {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.admin-detail-list > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.admin-detail-list dt {
+  font-size: 11px;
+  color: #617087;
+}
+.admin-detail-list dd {
+  font-weight: 500;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin-detail-list > div {
+  align-items: center;
+}
+.admin-detail-value {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.admin-detail-value > span {
+  min-width: 0;
+}
+/* Nút bút sửa từng dòng thông tin */
+.admin-edit-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -4px -4px 0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+.admin-edit-button:hover,
+.admin-edit-button:focus-visible {
+  color: #2563eb;
+  background: #dbeafe;
+}
+/* Nút tích xác nhận sửa xong */
+.admin-confirm-button {
+  width: 34px;
+  height: 34px;
+  margin: 2px 0 0;
+  color: #ffffff;
+  background: #059669;
+}
+.admin-confirm-button:hover,
+.admin-confirm-button:focus-visible {
+  color: #ffffff;
+  background: #047857;
+}
+.admin-edited-tag {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #b45309;
+}
+@media (min-width: 480px) {
+  .admin-detail-list > div {
+    grid-template-columns: 128px 1fr;
+    gap: 12px;
+  }
+}
 .admin-label {
   display: flex;
   flex-direction: column;

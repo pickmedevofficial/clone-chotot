@@ -6,6 +6,8 @@ import {
   FaArrowUpRightFromSquare,
   FaBars,
   FaBoxOpen,
+  FaCheck,
+  FaPen,
   FaChartLine,
   FaClipboardList,
   FaHouse,
@@ -31,6 +33,7 @@ import {
   type AdminData,
   type AdminStatus,
   type Customer,
+  type Delivery,
   type Employee,
 } from "@/lib/admin";
 
@@ -102,6 +105,21 @@ export default function AdminView() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
+  // Giá trị đã sửa (chưa lưu) của từng dòng thông tin nhận hàng.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  function startEdit(key: string, value: string) {
+    setDrafts((prev) => ({ ...prev, [key]: prev[key] ?? value }));
+    setEditing((prev) => new Set(prev).add(key));
+  }
+  function finishEdit(key: string) {
+    setEditing((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    document.getElementById(`order-edit-btn-${key}`)?.focus();
+  }
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuCloseRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -158,6 +176,8 @@ export default function AdminView() {
   }
   function open(m: Modal) {
     setError("");
+    setEditing(new Set());
+    setDrafts({});
     setModal(m);
   }
   function save(next: AdminData) {
@@ -241,7 +261,35 @@ export default function AdminView() {
           },
         },
       });
-    else
+    else {
+      if (!selectedOrder) return;
+      // Chỉ những dòng đang sửa mới có input; các dòng khác giữ giá trị cũ.
+      const pick = (key: string, fallback = "") =>
+        key in drafts ? drafts[key].trim() : fallback;
+      const delivery: Delivery = {
+        province: pick("province", selectedDelivery?.province),
+        ward: pick("ward", selectedDelivery?.ward),
+        street: pick(
+          "street",
+          selectedDelivery?.street ?? selectedOrder.customer.address,
+        ),
+        note: pick("note", selectedDelivery?.note),
+      };
+      const name = pick("name", selectedOrder.customer.name);
+      const rawPhone = pick("phone", selectedOrder.customer.phone);
+      const email = pick("email", selectedOrder.customer.email);
+      if (name.length < 2) {
+        setError("Họ và tên cần ít nhất 2 ký tự.");
+        return;
+      }
+      if (!validPhone(rawPhone)) {
+        setError("Nhập số điện thoại di động Việt Nam hợp lệ.");
+        return;
+      }
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("Email chưa đúng định dạng.");
+        return;
+      }
       save({
         ...data,
         orderUpdates: {
@@ -249,12 +297,26 @@ export default function AdminView() {
           [modal.id]: {
             status: v("status") as AdminStatus,
             employeeId: v("employee"),
+            customer: {
+              name,
+              phone: normalizePhone(rawPhone),
+              email,
+              address: [delivery.street, delivery.ward, delivery.province]
+                .filter(Boolean)
+                .join(", "),
+            },
+            delivery,
           },
         },
       });
+    }
   }
   const selectedOrder =
     modal?.kind === "order" ? orders.find((o) => o.id === modal.id) : undefined;
+  // Dữ liệu admin lưu trước đây có thể chưa có `delivery`; lấy từ dữ liệu mẫu.
+  const selectedDelivery =
+    selectedOrder?.delivery ??
+    seed.orders.find((o) => o.id === selectedOrder?.id)?.delivery;
   const selectedProduct =
     modal?.kind === "product"
       ? PRODUCTS.find((p) => p.id === modal.id)
@@ -950,7 +1012,7 @@ export default function AdminView() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-modal-title"
-            className="admin-modal"
+            className={`admin-modal${modal.kind === "order" ? " admin-modal-wide" : ""}`}
             onKeyDown={(e) => {
               if (e.key === "Escape") setModal(null);
               if (e.key === "Tab") {
@@ -1145,85 +1207,258 @@ export default function AdminView() {
                     <strong className="text-brand">{selectedOrder.id}</strong>
                     <span>{formatDate(selectedOrder.createdAt)}</span>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-4 text-sm">
-                    <strong>
-                      {selectedOrder.customer.name} ·{" "}
-                      {selectedOrder.customer.phone}
-                    </strong>
-                    <p className="mt-2 text-muted">
-                      {selectedOrder.customer.address}
-                    </p>
-                  </div>
-                  {selectedOrder.items.map((i, n) => (
-                    <div
-                      key={n}
-                      className="flex justify-between gap-4 border-b border-line pb-3 text-sm"
+                  <div className="grid gap-5 md:grid-cols-2 md:gap-6">
+                    <section
+                      aria-labelledby="admin-order-delivery"
+                      className="rounded-xl bg-slate-50 p-4 text-sm"
                     >
-                      <span>
-                        {i.title}
-                        <small className="mt-1 block text-muted">
-                          {i.quantity} × {money(i.price)}
-                        </small>
-                      </span>
-                      <strong className="whitespace-nowrap">
-                        {money(i.quantity * i.price)}
-                      </strong>
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-sm">
-                    <span>Tiền hàng sau giảm giá</span>
-                    <strong>{money(selectedOrder.merchandise)}</strong>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Phí giao hàng sau giảm</span>
-                    <strong>
-                      {money(selectedOrder.total - selectedOrder.merchandise)}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between font-bold">
-                    <span>Tổng thanh toán</span>
-                    <span className="text-brand">
-                      {money(selectedOrder.total)}
-                    </span>
-                  </div>
-                  <label className="admin-label">
-                    Nhân viên phụ trách
-                    <select
-                      name="employee"
-                      className="field"
-                      defaultValue={selectedOrder.employeeId}
-                    >
-                      <option value="">Chưa phân công</option>
-                      {data.employees
-                        .filter(
-                          (e) => e.active || e.id === selectedOrder.employeeId,
-                        )
-                        .map((e) => (
-                          <option key={e.id} value={e.id}>
-                            {e.name}
-                          </option>
+                      <h3
+                        id="admin-order-delivery"
+                        className="admin-modal-heading"
+                      >
+                        THÔNG TIN NHẬN HÀNG
+                      </h3>
+                      <dl className="admin-detail-list">
+                        {(
+                          [
+                            {
+                              key: "name",
+                              label: "Họ và tên",
+                              value: selectedOrder.customer.name,
+                              autoComplete: "name",
+                            },
+                            {
+                              key: "phone",
+                              label: "Số điện thoại",
+                              value: selectedOrder.customer.phone,
+                              type: "tel",
+                            },
+                            {
+                              key: "email",
+                              label: "Email",
+                              value: selectedOrder.customer.email,
+                              type: "email",
+                            },
+                            {
+                              key: "province",
+                              label: "Tỉnh / thành phố",
+                              value: selectedDelivery?.province,
+                            },
+                            {
+                              key: "ward",
+                              label: "Phường / xã",
+                              value: selectedDelivery?.ward,
+                            },
+                            {
+                              key: "street",
+                              label: "Số nhà, tên đường",
+                              value:
+                                selectedDelivery?.street ??
+                                selectedOrder.customer.address,
+                            },
+                            {
+                              key: "note",
+                              label: "Ghi chú giao hàng",
+                              value: selectedDelivery?.note,
+                              multiline: true,
+                            },
+                          ] as {
+                            key: string;
+                            label: string;
+                            value?: string;
+                            type?: string;
+                            autoComplete?: string;
+                            multiline?: boolean;
+                          }[]
+                        ).map((row) => {
+                          const isEditing = editing.has(row.key);
+                          const inputId = `order-edit-${row.key}`;
+                          const original = row.value ?? "";
+                          const shown = drafts[row.key] ?? original;
+                          const changed =
+                            row.key in drafts &&
+                            drafts[row.key].trim() !== original;
+                          const fieldProps = {
+                            id: inputId,
+                            className: "field !py-2 text-sm",
+                            defaultValue: shown,
+                            autoFocus: true,
+                            onChange: (
+                              e: React.ChangeEvent<
+                                HTMLInputElement | HTMLTextAreaElement
+                              >,
+                            ) =>
+                              setDrafts((prev) => ({
+                                ...prev,
+                                [row.key]: e.target.value,
+                              })),
+                            onKeyDown: (
+                              e: React.KeyboardEvent<
+                                HTMLInputElement | HTMLTextAreaElement
+                              >,
+                            ) => {
+                              // Enter = xác nhận dòng (không gửi cả form).
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                finishEdit(row.key);
+                              }
+                            },
+                          };
+                          return (
+                            <div key={row.key}>
+                              <dt>
+                                {isEditing ? (
+                                  <label htmlFor={inputId}>{row.label}</label>
+                                ) : (
+                                  row.label
+                                )}
+                              </dt>
+                              <dd className="admin-detail-value">
+                                {isEditing ? (
+                                  <>
+                                    {row.multiline ? (
+                                      <textarea
+                                        {...fieldProps}
+                                        rows={2}
+                                        maxLength={500}
+                                      />
+                                    ) : (
+                                      <input
+                                        {...fieldProps}
+                                        type={row.type ?? "text"}
+                                        autoComplete={row.autoComplete ?? "off"}
+                                        maxLength={250}
+                                      />
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="admin-edit-button admin-confirm-button"
+                                      aria-label={`Xong sửa ${row.label.toLowerCase()}`}
+                                      title="Xong"
+                                      onClick={() => finishEdit(row.key)}
+                                    >
+                                      <FaCheck aria-hidden="true" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className={shown ? "" : "text-muted"}>
+                                      {shown || "Không có"}
+                                      {changed && (
+                                        <small className="admin-edited-tag">
+                                          Đã sửa · chưa lưu
+                                        </small>
+                                      )}
+                                    </span>
+                                    <button
+                                      id={`order-edit-btn-${row.key}`}
+                                      type="button"
+                                      className="admin-edit-button"
+                                      aria-label={`Sửa ${row.label.toLowerCase()}`}
+                                      title="Sửa"
+                                      onClick={() =>
+                                        startEdit(row.key, original)
+                                      }
+                                    >
+                                      <FaPen aria-hidden="true" />
+                                    </button>
+                                  </>
+                                )}
+                              </dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    </section>
+                    <div className="flex flex-col gap-4">
+                      <section
+                        aria-labelledby="admin-order-items"
+                        className="space-y-3"
+                      >
+                        <h3
+                          id="admin-order-items"
+                          className="admin-modal-heading"
+                        >
+                          SẢN PHẨM &amp; THANH TOÁN
+                        </h3>
+                        {selectedOrder.items.map((i, n) => (
+                          <div
+                            key={n}
+                            className="flex justify-between gap-4 border-b border-line pb-3 text-sm"
+                          >
+                            <span>
+                              {i.title}
+                              <small className="mt-1 block text-muted">
+                                {i.quantity} × {money(i.price)}
+                              </small>
+                            </span>
+                            <strong className="whitespace-nowrap">
+                              {money(i.quantity * i.price)}
+                            </strong>
+                          </div>
                         ))}
-                    </select>
-                  </label>
-                  <label className="admin-label">
-                    Trạng thái đơn
-                    <select
-                      name="status"
-                      className="field"
-                      defaultValue={selectedOrder.status}
-                    >
-                      {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <p className="text-xs leading-relaxed text-muted">
-                    Đơn hoàn tất ghi nhận doanh số và điểm. Chuyển sang hủy sẽ
-                    loại khỏi cả hai. Thao tác mô phỏng, không xác nhận thanh
-                    toán ngân hàng.
-                  </p>
+                        <div className="flex justify-between text-sm">
+                          <span>Tiền hàng sau giảm giá</span>
+                          <strong>{money(selectedOrder.merchandise)}</strong>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Phí giao hàng sau giảm</span>
+                          <strong>
+                            {money(
+                              selectedOrder.total - selectedOrder.merchandise,
+                            )}
+                          </strong>
+                        </div>
+                        <div className="flex justify-between font-bold">
+                          <span>Tổng thanh toán</span>
+                          <span className="text-brand">
+                            {money(selectedOrder.total)}
+                          </span>
+                        </div>
+                      </section>
+                      <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+                        <label className="admin-label">
+                          Nhân viên phụ trách
+                          <select
+                            name="employee"
+                            className="field"
+                            defaultValue={selectedOrder.employeeId}
+                          >
+                            <option value="">Chưa phân công</option>
+                            {data.employees
+                              .filter(
+                                (e) =>
+                                  e.active || e.id === selectedOrder.employeeId,
+                              )
+                              .map((e) => (
+                                <option key={e.id} value={e.id}>
+                                  {e.name}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <label className="admin-label">
+                          Trạng thái đơn
+                          <select
+                            name="status"
+                            className="field"
+                            defaultValue={selectedOrder.status}
+                          >
+                            {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                              <option key={k} value={k}>
+                                {v}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <p className="text-xs leading-relaxed text-muted">
+                        Đơn hoàn tất ghi nhận doanh số và điểm. Chuyển sang hủy
+                        sẽ loại khỏi cả hai. Thao tác mô phỏng, không xác nhận
+                        thanh toán ngân hàng.
+                      </p>
+                    </div>
+                  </div>
                 </>
               )}
               {error && (

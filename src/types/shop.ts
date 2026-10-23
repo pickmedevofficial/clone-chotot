@@ -36,7 +36,6 @@ export interface Buyer {
   phone: string;
   email: string;
   province: string;
-  district: string;
   ward: string;
   address: string;
   note: string;

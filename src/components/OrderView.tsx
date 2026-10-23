@@ -109,7 +109,7 @@ export default function OrderView({ id }: { id: string }) {
                 )}
                 <p className="mt-3 leading-7 text-muted">
                   {order.buyer.address}, {order.buyer.ward},{" "}
-                  {order.buyer.district}, {order.buyer.province}
+                  {order.buyer.province}
                 </p>
               </div>
               <div>
