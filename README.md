@@ -4,7 +4,10 @@ Cửa hàng demo sản phẩm chăm sóc nam, viết bằng Next.js 16.4.1, Reac
 
 ## Chạy
 
+Yêu cầu Node.js `24.22.1` và pnpm `11.1.1`. Nếu dùng nvm, repository đã có sẵn phiên bản Node được ghim:
+
 ```bash
+nvm use
 pnpm install
 pnpm dev
 pnpm test
@@ -12,6 +15,16 @@ pnpm test:e2e    # cần build trước; Chrome có sẵn trên máy
 pnpm lint
 pnpm build
 pnpm start
+```
+
+## Kiểm tra bảo mật dependency
+
+OSV-Scanner so sánh lỗ hổng dependency mới trên pull request và merge queue. Một lượt quét đầy đủ `pnpm-lock.yaml` cũng chạy sau mỗi push lên `main` và lúc 12:30 UTC thứ Hai hằng tuần; kết quả được đưa vào **Security → Code scanning** trên GitHub và workflow thất bại khi phát hiện lỗ hổng.
+
+Có thể quét thủ công nếu máy đã cài OSV-Scanner:
+
+```bash
+osv-scanner scan source --lockfile=pnpm-lock.yaml
 ```
 
 Kiểm thử E2E dùng Chrome tại `/usr/bin/google-chrome`; đặt `PLAYWRIGHT_CHROMIUM_EXECUTABLE` nếu Chrome nằm ở đường dẫn khác. Chạy các kịch bản desktop/mobile với `pnpm build` rồi `pnpm test:e2e`.
