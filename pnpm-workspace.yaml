@@ -1,2 +1,4 @@
+engineStrict: true
+
 allowBuilds:
   unrs-resolver: false

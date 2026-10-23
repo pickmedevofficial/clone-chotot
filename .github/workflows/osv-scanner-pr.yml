@@ -13,7 +13,85 @@ permissions:
 
 jobs:
   scan-pr:
+    if: github.event_name == 'pull_request'
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.7.0
     with:
       scan-args: |-
         --lockfile=./pnpm-lock.yaml
+
+  scan-merge-group:
+    if: github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout merge-group repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.merge_group.head_sha }}
+
+      - name: Checkout merge-group base
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: |
+          git checkout -f "${BASE_SHA}"
+          git submodule update --init --recursive
+
+      - name: Scan merge-group base
+        id: scan-old
+        uses: google/osv-scanner-action/osv-scanner-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --format=json
+            --output=old-results.json
+            --lockfile=./pnpm-lock.yaml
+
+      - name: Checkout merge-group head
+        env:
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: |
+          git checkout -f "${HEAD_SHA}"
+          git submodule update --init --recursive
+
+      - name: Scan merge-group head
+        id: scan-new
+        uses: google/osv-scanner-action/osv-scanner-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --format=json
+            --output=new-results.json
+            --lockfile=./pnpm-lock.yaml
+
+      - name: Verify both scans completed
+        if: steps.scan-old.outcome == 'failure' || steps.scan-new.outcome == 'failure'
+        env:
+          OLD_OUTCOME: ${{ steps.scan-old.outcome }}
+          NEW_OUTCOME: ${{ steps.scan-new.outcome }}
+        run: |
+          status=0
+          if [ "${OLD_OUTCOME}" = "failure" ] && [ ! -s old-results.json ]; then
+            echo "::error::OSV-Scanner did not produce base results."
+            status=1
+          fi
+          if [ "${NEW_OUTCOME}" = "failure" ] && [ ! -s new-results.json ]; then
+            echo "::error::OSV-Scanner did not produce head results."
+            status=1
+          fi
+          exit "${status}"
+
+      - name: Compare merge-group results
+        uses: google/osv-scanner-action/osv-reporter-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        with:
+          scan-args: |-
+            --output=merge-group-results.sarif
+            --old=old-results.json
+            --new=new-results.json
+            --gh-annotations=true
+            --fail-on-vuln=true
+
+      - name: Upload merge-group results to code scanning
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: merge-group-results.sarif

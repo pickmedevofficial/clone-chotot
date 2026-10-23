@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Pin Node.js exactly to `24.22.1` in version-manager files and support only the Node.js 24 release line in `package.json`.
+- Set `engineStrict: true` in `pnpm-workspace.yaml` so pnpm rejects unsupported Node.js versions instead of warning.
 - Keep pnpm at `11.1.1`; do not upgrade Next.js, React, pnpm, or unrelated application packages.
 - Use OSV-Scanner reusable workflows at `v2.7.0`; do not add an OSV npm dependency.
 - Scan the committed `pnpm-lock.yaml` without vulnerability suppressions or automatic remediation.
@@ -34,11 +35,12 @@
 - Create: `.nvmrc`
 - Create: `.node-version`
 - Modify: `package.json`
+- Modify: `pnpm-workspace.yaml`
 - Modify: `pnpm-lock.yaml`
 
 **Interfaces:**
 - Consumes: Node.js 24.22.1 and the existing `packageManager: pnpm@11.1.1` declaration.
-- Produces: identical runtime pins in `.nvmrc` and `.node-version`, `engines.node` set to `>=24.22.1 <25`, and Node.js 24 TypeScript definitions recorded in the lockfile.
+- Produces: identical runtime pins in `.nvmrc` and `.node-version`, `engines.node` set to `>=24.22.1 <25`, strict pnpm engine enforcement, and Node.js 24 TypeScript definitions recorded in the lockfile.
 
 - [ ] **Step 1: Run a configuration assertion that demonstrates the runtime pins are absent**
 
@@ -48,7 +50,7 @@ Expected: FAIL because the version files and `engines.node` do not exist and `@t
 
 - [ ] **Step 2: Add the runtime declarations**
 
-Create `.nvmrc` and `.node-version` with the single value `24.22.1`. Add `"engines": { "node": ">=24.22.1 <25" }` beside `packageManager` in `package.json`, and change `@types/node` from `^20` to `^24`.
+Create `.nvmrc` and `.node-version` with the single value `24.22.1`. Add `"engines": { "node": ">=24.22.1 <25" }` beside `packageManager` in `package.json`, set `engineStrict: true` in `pnpm-workspace.yaml`, and change `@types/node` from `^20` to `^24`.
 
 - [ ] **Step 3: Regenerate only the dependency lockfile under Node.js 24.22.1**
 
@@ -98,7 +100,7 @@ Expected: FAIL because neither workflow exists.
 
 - [ ] **Step 2: Add the pull-request OSV workflow**
 
-Create `.github/workflows/osv-scanner-pr.yml` with `pull_request` and `merge_group` triggers restricted to `main`, top-level permissions `actions: read`, `contents: read`, and `security-events: write`, and one `scan-pr` job using `google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.7.0`. Pass `scan-args` containing only `--lockfile=./pnpm-lock.yaml`.
+Create `.github/workflows/osv-scanner-pr.yml` with `pull_request` and `merge_group` triggers restricted to `main` and top-level permissions `actions: read`, `contents: read`, and `security-events: write`. Use `google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.7.0` only for pull requests. For merge groups, scan `github.event.merge_group.base_sha` and `head_sha` separately with the official v2.7.0 scanner action, compare them with the official reporter action, and upload SARIF.
 
 - [ ] **Step 3: Add the full OSV workflow**
 
