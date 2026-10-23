@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import AdminView from "@/components/AdminView";
 export default function AdminPage() {
-  redirect("/gio-hang");
+  return <AdminView />;
 }

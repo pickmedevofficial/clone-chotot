@@ -159,7 +159,7 @@ test("voucher sai không tạo đơn; lỗi lưu không làm mất giỏ; COD đ
   ).toBeVisible();
 });
 
-test("dữ liệu lưu trữ hỏng không làm sập trang; URL đăng tin cũ về giỏ", async ({
+test("dữ liệu lưu trữ hỏng không làm sập trang admin và cửa hàng", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -170,9 +170,9 @@ test("dữ liệu lưu trữ hỏng không làm sập trang; URL đăng tin cũ 
     );
   });
   await page.goto("/admin");
-  await expect(page).toHaveURL(/\/gio-hang$/);
+  await expect(page).toHaveURL(/\/admin$/);
   await expect(
-    page.getByRole("heading", { name: "Giỏ hàng đang chờ bạn" }),
+    page.getByRole("heading", { name: "Mỗi ngày, một bước tiến." }),
   ).toBeVisible();
   await page.goto("/don-hang");
   await expect(

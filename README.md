@@ -37,7 +37,15 @@ Kiểm thử E2E dùng Chrome tại `/usr/bin/google-chrome`; đặt `PLAYWRIGHT
 - `/thanh-toan`: thông tin người mua, địa chỉ, giao hàng, voucher, COD/chuyển khoản.
 - `/don-hang`: lịch sử đơn trên trình duyệt này.
 - `/don-hang/[id]`: snapshot đơn, tổng thanh toán, QR và thông tin người nhận.
-- `/admin`: URL cũ chuyển về giỏ hàng; không còn chức năng đăng tin.
+- `/admin`: dashboard, đơn hàng, nhân viên, doanh số, catalog admin và hồ sơ khách tích điểm theo số điện thoại.
+
+## Admin demo
+
+Admin dùng cùng theme cửa hàng, có 36 đơn mẫu tháng 10/2026, 4 nhân viên, 12 khách hàng giả và danh sách 400 SKU hiện có. Seed được tạo xác định trong `src/lib/admin.ts`; chỉ hiển thị trong admin, không thêm đơn mẫu vào lịch sử mua của khách. Đơn phát sinh từ checkout trên cùng trình duyệt tự xuất hiện trong admin và có thể phân công nhân viên, cập nhật trạng thái.
+
+Doanh số nhân viên chỉ tính tiền hàng sau giảm giá của đơn hoàn tất, không gồm phí giao hàng. Khách hàng được gộp theo số điện thoại Việt Nam chuẩn hóa (`+84` và `0` là cùng hồ sơ). Mỗi 10.000đ tiền hàng sau giảm giá tích 1 điểm, làm tròn xuống từng đơn hoàn tất. Hủy đơn tự loại doanh số và điểm; lưu trạng thái nhiều lần không cộng trùng. Chưa có đổi điểm hoặc quy đổi tiền thưởng.
+
+Thay đổi admin lưu riêng tại `mendaily:admin:v1` trong localStorage. Sửa giá/tồn kho chỉ tác động catalog admin demo, chưa đồng bộ catalog bán hàng hoặc checkout. Trạng thái admin cũng chưa thay đổi lịch sử đơn phía khách. Bộ lọc thời gian tính lùi từ đơn mới nhất để dữ liệu mẫu vẫn xem được. Không có đăng nhập, phân quyền hoặc backend; đây là bản xem thử nội bộ bằng thông tin giả, chưa dùng để vận hành bán hàng thật.
 
 ## Catalog
 
