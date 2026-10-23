@@ -2,22 +2,10 @@ import { CATEGORIES } from "./categories";
 import type { Product } from "@/types/shop";
 
 // Giá demo tham khảo. Mỗi danh mục: 10 dòng × 5 quy cách mua lẻ/combo.
-type Seed = [
-  brand: string,
-  name: string,
-  size: string,
-  price: number,
-  sourceUrl?: string,
-];
+type Seed = [brand: string, name: string, size: string, price: number];
 const seeds: Record<string, Seed[]> = {
   "dau-goi": [
-    [
-      "CLEAR MEN",
-      "Active Cool 3 trong 1",
-      "630g",
-      177000,
-      "https://hasaki.vn/san-pham/dau-tam-goi-clear-men-3-trong-1-active-cool-mat-lanh-630g-87935.html",
-    ],
+    ["CLEAR MEN", "Active Cool 3 trong 1", "630g", 177000],
     ["CLEAR MEN", "Deep Cleanse sạch sâu", "900g", 219000],
     ["Head & Shoulders", "Cool Menthol bạc hà", "625ml", 189000],
     ["Head & Shoulders", "Ultra Men Deep Clean", "550ml", 199000],
@@ -41,13 +29,7 @@ const seeds: Record<string, Seed[]> = {
     ["Rexona Men", "Invisible Dry", "150ml", 129000],
   ],
   "sua-rua-mat": [
-    [
-      "NIVEA MEN",
-      "Mud sáng da & kiểm soát nhờn",
-      "100g",
-      89000,
-      "https://www.guardian.com.vn/sua-rua-mat-nivea-men-mud-giup-sang-da-kiem-soat-nhon-100g.html",
-    ],
+    ["NIVEA MEN", "Mud sáng da & kiểm soát nhờn", "100g", 89000],
     ["NIVEA MEN", "Deep Himalaya", "100g", 99000],
     ["L’Oréal Men Expert", "Hydra Energetic", "100ml", 149000],
     ["Garnier Men", "TurboLight Oil Control", "100ml", 109000],
@@ -59,13 +41,7 @@ const seeds: Record<string, Seed[]> = {
     ["Bioderma", "Sébium Gel Moussant", "200ml", 299000],
   ],
   "kem-chong-nang": [
-    [
-      "ANESSA",
-      "Perfect UV Skincare Milk SPF50+",
-      "60ml",
-      468000,
-      "https://www.guardian.com.vn/shopby/anessa.html?brand_id=604%2C14610",
-    ],
+    ["ANESSA", "Perfect UV Skincare Milk SPF50+", "60ml", 468000],
     ["La Roche-Posay", "Anthelios UVMune 400 SPF50+", "50ml", 429000],
     ["Bioré", "UV Aqua Rich SPF50+", "70g", 219000],
     ["Skin Aqua", "UV Super Moisture Gel SPF50+", "110g", 229000],
@@ -128,24 +104,22 @@ const seeds: Record<string, Seed[]> = {
 
 export const PACK_SIZES = [1, 2, 3, 4, 6];
 export const PRODUCTS: Product[] = CATEGORIES.flatMap((category) =>
-  seeds[category.id].flatMap(
-    ([brand, name, size, unitPrice, sourceUrl], index) =>
-      PACK_SIZES.map((packSize) => ({
-        id: `${category.id}-${index + 1}-${packSize}`,
-        familyId: `${category.id}-${index + 1}`,
-        title: `${category.name} ${brand} ${name} ${size}${packSize > 1 ? ` · Combo ${packSize}` : ""}`,
-        brand,
-        name,
-        size,
-        packSize,
-        unitPrice,
-        price: unitPrice * packSize,
-        categoryId: category.id,
-        stock: 50,
-        color: category.color,
-        sourceUrl,
-        description: `${category.name} ${brand} ${name}, quy cách ${size}. ${packSize === 1 ? "Một sản phẩm cho nhu cầu sử dụng hằng ngày." : `Combo gồm ${packSize} sản phẩm cùng loại, mỗi sản phẩm ${size}.`} Xem thành phần và hướng dẫn trên bao bì trước khi sử dụng. Ngưng sử dụng nếu có dấu hiệu kích ứng.`,
-      })),
+  seeds[category.id].flatMap(([brand, name, size, unitPrice], index) =>
+    PACK_SIZES.map((packSize) => ({
+      id: `${category.id}-${index + 1}-${packSize}`,
+      familyId: `${category.id}-${index + 1}`,
+      title: `${category.name} ${brand} ${name} ${size}${packSize > 1 ? ` · Combo ${packSize}` : ""}`,
+      brand,
+      name,
+      size,
+      packSize,
+      unitPrice,
+      price: unitPrice * packSize,
+      categoryId: category.id,
+      stock: 50,
+      color: category.color,
+      description: `${category.name} ${brand} ${name}, quy cách ${size}. ${packSize === 1 ? "Một sản phẩm cho nhu cầu sử dụng hằng ngày." : `Combo gồm ${packSize} sản phẩm cùng loại, mỗi sản phẩm ${size}.`} Xem thành phần và hướng dẫn trên bao bì trước khi sử dụng. Ngưng sử dụng nếu có dấu hiệu kích ứng.`,
+    })),
   ),
 );
 export const PRODUCT_MAP = new Map(PRODUCTS.map((p) => [p.id, p]));

@@ -96,7 +96,9 @@
   padding: 0 12px 16px;
   gap: 4px;
 }
-.admin-sidebar nav button {
+/* Mục menu có thể là nút (tab tại chỗ) hoặc link (trang con) */
+.admin-sidebar nav button,
+.admin-sidebar nav a {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -109,11 +111,13 @@
     color 160ms ease,
     background-color 160ms ease;
 }
-.admin-sidebar nav button:hover {
+.admin-sidebar nav button:hover,
+.admin-sidebar nav a:hover {
   color: #ffffff;
   background: #ffffff14;
 }
-.admin-sidebar nav button.selected {
+.admin-sidebar nav button.selected,
+.admin-sidebar nav a.selected {
   color: #174ac0;
   background: #ffffff;
   font-weight: 600;
@@ -123,7 +127,8 @@
   color: #ffffff;
   background: #ffffff24;
 }
-.admin-sidebar nav button.selected .admin-order-count {
+.admin-sidebar nav button.selected .admin-order-count,
+.admin-sidebar nav a.selected .admin-order-count {
   color: #174ac0;
   background: #dbeafe;
 }

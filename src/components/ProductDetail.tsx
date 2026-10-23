@@ -149,20 +149,6 @@ function Detail({ id }: { id: string }) {
           <dt className="text-muted">Mã sản phẩm</dt>
           <dd className="break-all font-mono text-xs">{product.id}</dd>
         </dl>
-        {product.sourceUrl && (
-          <p className="mt-5 text-xs text-muted">
-            Giá đã tham khảo từ{" "}
-            <a
-              href={product.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand underline"
-            >
-              nhà bán lẻ
-            </a>
-            ; giá demo có thể khác giá đang bán.
-          </p>
-        )}
       </section>
       <section className="mt-10">
         <h2 className="mb-5 text-xl font-bold">Thêm lựa chọn cho bạn</h2>

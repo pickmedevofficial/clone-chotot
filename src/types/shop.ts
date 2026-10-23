@@ -13,13 +13,13 @@ export interface Product {
   name: string;
   size: string;
   packSize: number;
+  specLabel?: string;
   unitPrice: number;
   price: number;
   categoryId: string;
   description: string;
   stock: number;
   color: string;
-  sourceUrl?: string;
 }
 export interface CartItem {
   productId: string;

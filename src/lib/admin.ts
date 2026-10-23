@@ -34,11 +34,61 @@ export interface AdminOrder {
   merchandise: number;
   total: number;
 }
+export interface ProductOverride {
+  price: number;
+  stock: number;
+  active: boolean;
+  sku?: string;
+  brand?: string;
+  name?: string;
+  title?: string;
+  size?: string;
+  packSize?: number;
+  specLabel?: string;
+  unitPrice?: number;
+  categoryId?: string;
+  familyId?: string;
+  description?: string;
+}
+export interface CustomSibling {
+  id: string;
+  familyId: string;
+  brand: string;
+  name: string;
+  size: string;
+  packSize: number;
+  specLabel?: string;
+  unitPrice: number;
+  price: number;
+  categoryId: string;
+  stock: number;
+  color: string;
+  description: string;
+  title: string;
+  active: boolean;
+}
+
+export function getSpecLabel(
+  p: { packSize?: number; size?: string; specLabel?: string },
+  override?: ProductOverride,
+): string {
+  if (override?.specLabel && override.specLabel.trim()) {
+    return override.specLabel.trim();
+  }
+  if (p.specLabel && p.specLabel.trim()) {
+    return p.specLabel.trim();
+  }
+  if (p.packSize && p.packSize > 1) {
+    return `Combo ${p.packSize}`;
+  }
+  return p.size && p.size.trim() ? p.size.trim() : "Mua lẻ";
+}
+
 export interface AdminData {
   employees: Employee[];
   customers: Customer[];
   orders: AdminOrder[];
-  overrides: Record<string, { price: number; stock: number; active: boolean }>;
+  overrides: Record<string, ProductOverride>;
   orderUpdates: Record<
     string,
     {
@@ -49,6 +99,8 @@ export interface AdminData {
       delivery?: Delivery;
     }
   >;
+  /** Quy cách bổ sung theo từng dòng sản phẩm do admin thêm. */
+  customSiblings?: Record<string, CustomSibling[]>;
 }
 export const STATUS_LABELS: Record<AdminStatus, string> = {
   pending: "Chờ xác nhận",
@@ -228,5 +280,12 @@ export function seedAdmin(): AdminData {
       total: p.price * quantity + 30000,
     };
   });
-  return { employees, customers, orders, overrides: {}, orderUpdates: {} };
+  return {
+    employees,
+    customers,
+    orders,
+    overrides: {},
+    orderUpdates: {},
+    customSiblings: {},
+  };
 }

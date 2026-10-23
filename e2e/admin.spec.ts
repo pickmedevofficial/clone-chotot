@@ -2,7 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function goToTab(page: Page, name: string) {
   const menuButton = page.getByRole("button", { name: "Mở menu quản trị" });
-  if (await menuButton.isVisible()) await menuButton.click();
+  if ((page.viewportSize()?.width ?? 0) < 1024) {
+    await expect(menuButton).toBeVisible();
+    await menuButton.click();
+  }
   await page
     .getByRole("navigation", { name: "Quản trị" })
     .getByRole("button", { name: new RegExp(`^${name}`) })
@@ -119,9 +122,10 @@ test("admin quản lý đơn, doanh số, khách hàng và sản phẩm", async 
   await expect(page.locator("tbody")).toContainText("Nhân viên kiểm thử");
   await goToTab(page, "Sản phẩm");
   await page
-    .getByRole("button", { name: "Chỉnh sửa", exact: true })
+    .getByRole("button", { name: /^Chỉnh sửa nhanh / })
     .first()
     .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByLabel("Tồn kho admin").fill("5");
   await page.getByRole("button", { name: "Lưu thay đổi" }).click();
   await expect(page.locator("tbody tr").first()).toContainText("5");
@@ -129,5 +133,127 @@ test("admin quản lý đơn, doanh số, khách hàng và sản phẩm", async 
     path: testInfo.outputPath("admin-products.png"),
     fullPage: true,
   });
+  expect(errors).toEqual([]);
+});
+
+test("trang chi tiết sản phẩm admin hiển thị đủ thông tin và lưu chỉnh sửa", async ({
+  page,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/admin?tab=products");
+  await expect(
+    page.getByRole("heading", { name: "Sản phẩm", exact: true }),
+  ).toBeVisible();
+  const row = page.locator("tbody tr").first();
+  const sku = (await row.locator("small").first().textContent())!.trim();
+  await row.getByRole("link", { name: "Chỉnh sửa", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/san-pham/${sku}$`));
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb).toContainText("Quản trị");
+  await expect(breadcrumb).toContainText("Sản phẩm");
+  await expect(breadcrumb).toContainText(sku);
+  await expect(
+    page.getByRole("heading", { name: "THÔNG TIN SẢN PHẨM" }),
+  ).toBeVisible();
+  await expect(page.getByText("QUY CÁCH CÙNG DÒNG")).toBeVisible();
+  await expect(
+    page.getByText("Bao bì minh họa", { exact: false }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByLabel("Tồn kho admin").fill("7");
+  await page.getByLabel("Trạng thái").selectOption("false");
+
+  // Thử bấm bút sửa tên sản phẩm và xác nhận bằng nút tích
+  await page.getByRole("button", { name: "Sửa tên sản phẩm" }).click();
+  const nameInput = page.getByRole("textbox", {
+    name: "Tên sản phẩm",
+    exact: true,
+  });
+  await expect(nameInput).toBeVisible();
+  await nameInput.fill("Active Cool Siêu Mát Lạnh");
+  await page.getByRole("button", { name: "Xong sửa tên sản phẩm" }).click();
+  await expect(page.getByText("Đã sửa · chưa lưu")).toBeVisible();
+
+  await page.getByRole("button", { name: "Lưu thay đổi" }).click();
+  await expect(page.getByRole("status")).toContainText("Đã lưu");
+
+  // Widget QUY CÁCH CÙNG DÒNG: không có cụm chữ "DANH SÁCH & CHỈNH SỬA QUY CÁCH"
+  await expect(
+    page.getByText("DANH SÁCH & CHỈNH SỬA QUY CÁCH"),
+  ).not.toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "QUY CÁCH CÙNG DÒNG" }),
+  ).toBeVisible();
+
+  // Thử thêm quy cách mới (ví dụ: 100ml)
+  await page.getByRole("button", { name: "Thêm quy cách mới" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Thêm quy cách mới cho dòng này" }),
+  ).toBeVisible();
+  await page.getByLabel("Nội dung quy cách mới").fill("100ml");
+  await page
+    .getByRole("button", { name: "Thêm quy cách", exact: true })
+    .click();
+  await page.waitForURL(/\/admin\/san-pham\/dau-goi-1-100ml$/);
+  await expect(page.getByRole("status")).toContainText(
+    'Đã thêm quy cách "100ml"',
+  );
+  await expect(page.getByRole("link", { name: /100ml/ })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /100ml/ }).getByText("Tùy chỉnh"),
+  ).toBeVisible();
+
+  // Thử sửa "Nội dung quy cách" từ nút "Sửa quy cách" trong widget QUY CÁCH CÙNG DÒNG
+  await page.getByRole("button", { name: "Sửa nội dung quy cách đang chọn" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Sửa nội dung quy cách" }),
+  ).toBeVisible();
+  const widgetSpecInput = page.getByLabel("Nhập nội dung quy cách mới");
+  await expect(widgetSpecInput).toBeVisible();
+  await widgetSpecInput.fill("120ml");
+  await page.getByRole("button", { name: "Lưu nội dung quy cách" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    'Đã cập nhật nội dung quy cách thành "120ml"',
+  );
+  await expect(page.getByRole("link", { name: /120ml/ })).toBeVisible();
+
+  // Tự cập nhật giá bán / tồn kho ở nội dung bên phải
+  const rightAdminPrice = page
+    .getByRole("spinbutton", { name: "Giá admin (đ)" })
+    .first();
+  await expect(rightAdminPrice).toBeVisible();
+  await rightAdminPrice.fill("99000");
+  const saveBtn = page.getByRole("button", { name: "Lưu thay đổi" }).first();
+  await saveBtn.scrollIntoViewIfNeeded();
+  await saveBtn.click();
+  await expect(page.getByRole("status")).toContainText("Đã lưu");
+
+  // Quay lại sản phẩm ban đầu để kiểm tra các bước tiếp theo
+  await page.goto("/admin/san-pham/dau-goi-1-1");
+  await expect(
+    page.getByRole("heading", { name: "Active Cool Siêu Mát Lạnh" }),
+  ).toBeVisible();
+
+  await page.screenshot({
+    path: testInfo.outputPath("admin-product-detail.png"),
+    fullPage: true,
+  });
+  await page.reload();
+  await expect(page.getByLabel("Tồn kho admin")).toHaveValue("7");
+  await expect(
+    page.getByRole("heading", { name: "Active Cool Siêu Mát Lạnh" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Quay lại danh sách sản phẩm" }).click();
+  await expect(page).toHaveURL(/\/admin\?tab=products$/);
+  await expect(page.locator("tbody tr").first()).toContainText("Tạm ngưng");
+  await page.goto("/admin/san-pham/khong-ton-tai");
+  await expect(
+    page.getByRole("heading", { name: "Không tìm thấy sản phẩm" }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });

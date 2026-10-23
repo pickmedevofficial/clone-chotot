@@ -1,23 +1,18 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import type { IconType } from "react-icons";
 import {
   FaArrowUpRightFromSquare,
-  FaBars,
-  FaBoxOpen,
   FaCheck,
   FaPen,
-  FaChartLine,
-  FaClipboardList,
-  FaHouse,
   FaReceipt,
   FaSackDollar,
   FaStar,
   FaUserGroup,
-  FaUserTie,
-  FaXmark,
 } from "react-icons/fa6";
+import AdminShell from "./AdminShell";
+import { ADMIN_TABS as tabs, type AdminTab as Tab } from "@/lib/admin-tabs";
 import { PRODUCTS } from "@/data/products";
 import { CATEGORIES } from "@/data/categories";
 import { useOrders } from "@/lib/commerce-store";
@@ -27,7 +22,6 @@ import {
   employeeRevenue,
   mergeOrders,
   normalizePhone,
-  seedAdmin,
   STATUS_LABELS,
   validPhone,
   type AdminData,
@@ -36,50 +30,8 @@ import {
   type Delivery,
   type Employee,
 } from "@/lib/admin";
+import { adminSeed as seed, useAdminData, writeAdmin } from "@/lib/admin-store";
 
-const KEY = "mendaily:admin:v1";
-const seed = seedAdmin();
-let rawCache: string | null | undefined;
-let cache = seed;
-const listeners = new Set<() => void>();
-function subscribe(fn: () => void) {
-  listeners.add(fn);
-  window.addEventListener("storage", fn);
-  return () => {
-    listeners.delete(fn);
-    window.removeEventListener("storage", fn);
-  };
-}
-function snapshot() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw !== rawCache) {
-      rawCache = raw;
-      const d = raw ? JSON.parse(raw) : seed;
-      cache =
-        d &&
-        Array.isArray(d.employees) &&
-        Array.isArray(d.customers) &&
-        Array.isArray(d.orders) &&
-        d.overrides &&
-        d.orderUpdates
-          ? d
-          : seed;
-    }
-  } catch {
-    cache = seed;
-  }
-  return cache;
-}
-const tabs = [
-  ["overview", "Tổng quan", FaHouse],
-  ["orders", "Đơn hàng", FaClipboardList],
-  ["employees", "Nhân viên", FaUserTie],
-  ["sales", "Doanh số nhân viên", FaChartLine],
-  ["products", "Sản phẩm", FaBoxOpen],
-  ["customers", "Khách hàng", FaUserGroup],
-] as const satisfies readonly (readonly [string, string, IconType])[];
-type Tab = (typeof tabs)[number][0];
 type Modal =
   | { kind: "employee"; value?: Employee }
   | { kind: "customer"; value?: Customer }
@@ -93,10 +45,14 @@ function Badge({ status }: { status: AdminStatus }) {
     </span>
   );
 }
-export default function AdminView() {
-  const data = useSyncExternalStore(subscribe, snapshot, () => seed);
+export default function AdminView({
+  initialTab = "overview",
+}: {
+  initialTab?: Tab;
+}) {
+  const data = useAdminData();
   const storefront = useOrders();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [period, setPeriod] = useState("all");
@@ -104,7 +60,6 @@ export default function AdminView() {
   const [modal, setModal] = useState<Modal>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
   // Giá trị đã sửa (chưa lưu) của từng dòng thông tin nhận hàng.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -120,32 +75,6 @@ export default function AdminView() {
     });
     document.getElementById(`order-edit-btn-${key}`)?.focus();
   }
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const menuCloseRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const desktop = window.matchMedia("(min-width: 1024px)");
-    const close = (restoreFocus: boolean) => {
-      setMenuOpen(false);
-      if (restoreFocus) menuButtonRef.current?.focus();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close(true);
-    };
-    const onResize = () => {
-      if (desktop.matches) close(false);
-    };
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    menuCloseRef.current?.focus();
-    window.addEventListener("keydown", onKey);
-    desktop.addEventListener("change", onResize);
-    return () => {
-      document.body.style.overflow = overflow;
-      window.removeEventListener("keydown", onKey);
-      desktop.removeEventListener("change", onResize);
-    };
-  }, [menuOpen]);
   const orders = mergeOrders(data, storefront);
   const customers = customerSummary(data.customers, orders);
   const latest = orders[0]?.createdAt ?? "2026-10-23";
@@ -172,7 +101,12 @@ export default function AdminView() {
     setQuery("");
     setFilter("all");
     setPage(1);
-    setMenuOpen(false);
+    // Ghi tab vào URL để quay lại từ trang con (vd. chi tiết sản phẩm) đúng tab.
+    window.history.replaceState(
+      null,
+      "",
+      t === "overview" ? "/admin" : `/admin?tab=${t}`,
+    );
   }
   function open(m: Modal) {
     setError("");
@@ -182,8 +116,7 @@ export default function AdminView() {
   }
   function save(next: AdminData) {
     try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-      listeners.forEach((fn) => fn());
+      writeAdmin(next);
       setNotice("Đã lưu thay đổi trên trình duyệt này.");
       setError("");
       setModal(null);
@@ -466,541 +399,474 @@ export default function AdminView() {
     },
   ];
   return (
-    <div className="admin-shell">
-      <div
-        className={`admin-backdrop${menuOpen ? " open" : ""}`}
-        aria-hidden="true"
-        onClick={() => setMenuOpen(false)}
-      />
-      <aside
-        id="admin-sidebar"
-        className={`admin-sidebar${menuOpen ? " open" : ""}`}
-      >
-        <div className="flex items-start justify-between">
-          <Link href="/" className="admin-logo">
-            MEN <span className="admin-logo-accent">/</span> DAILY
-            <small>KHÔNG GIAN QUẢN TRỊ</small>
-          </Link>
-          <button
-            ref={menuCloseRef}
-            type="button"
-            className="admin-menu-close"
-            aria-label="Đóng menu quản trị"
-            onClick={() => {
-              setMenuOpen(false);
-              menuButtonRef.current?.focus();
-            }}
-          >
-            <FaXmark aria-hidden="true" />
-          </button>
-        </div>
-        <p className="admin-sidebar-section px-7 pb-3 text-[10px] font-bold tracking-widest">
-          CỬA HÀNG
-        </p>
-        <nav aria-label="Quản trị">
-          {tabs.map(([id, label, SidebarIcon]) => (
-            <button
-              key={id}
-              onClick={() => navigate(id)}
-              aria-current={tab === id ? "page" : undefined}
-              className={tab === id ? "selected" : ""}
-            >
-              <SidebarIcon aria-hidden="true" className="admin-nav-icon" />
-              {label}
-              {id === "orders" && (
-                <span className="admin-order-count ml-auto rounded px-1.5 text-[10px]">
-                  {orders.filter((o) => o.status === "pending").length}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-        <div className="admin-side-note">
-          <strong>MEN / DAILY Studio</strong>
-          <p>Dữ liệu demo · Lưu cục bộ</p>
-          <Link href="/">← Xem cửa hàng</Link>
-        </div>
-      </aside>
-      <div className="admin-content">
-        <header className="admin-header">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              ref={menuButtonRef}
-              type="button"
-              className="admin-menu-button"
-              aria-label="Mở menu quản trị"
-              aria-controls="admin-sidebar"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen(true)}
-            >
-              <FaBars aria-hidden="true" />
-            </button>
-            <p className="truncate text-sm text-muted">
-              Quản trị <span className="mx-2 text-slate-300">/</span>
-              <span className="text-foreground">
-                {tabs.find((t) => t[0] === tab)?.[1]}
-              </span>
+    <AdminShell
+      active={tab}
+      onNavigate={navigate}
+      pendingCount={orders.filter((o) => o.status === "pending").length}
+      crumbs={[
+        { label: "Quản trị" },
+        { label: tabs.find((t) => t[0] === tab)?.[1] ?? "" },
+      ]}
+    >
+      <main className="mx-auto max-w-[1500px] p-4 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow mb-2 text-brand">MEN / DAILY MANAGEMENT</p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {tab === "overview"
+                ? "Mỗi ngày, một bước tiến."
+                : tabs.find((t) => t[0] === tab)?.[1]}
+            </h1>
+            <p className="mt-2 text-sm text-muted">
+              {tab === "overview"
+                ? "Cùng nhìn lại hoạt động kinh doanh của cửa hàng."
+                : tab === "sales"
+                  ? "Ghi nhận đóng góp. Theo dõi mục tiêu. Phát triển đội ngũ."
+                  : "Quản lý tập trung, cập nhật dễ dàng."}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/" className="hidden text-xs text-muted sm:block">
-              Đến cửa hàng ↗
-            </Link>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-brand">
-              AD
-            </span>
-            <div className="hidden text-xs sm:block">
-              <strong>Quản trị viên</strong>
-              <p className="mt-1 text-muted">Chế độ demo</p>
-            </div>
+          <div className="flex gap-2">
+            {["overview", "orders", "sales"].includes(tab) && (
+              <select
+                className="field !w-auto"
+                aria-label="Khoảng thời gian"
+                value={period}
+                onChange={(e) => {
+                  setPeriod(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">Toàn bộ thời gian</option>
+                <option value="7">7 ngày gần nhất</option>
+                <option value="30">30 ngày gần nhất</option>
+              </select>
+            )}
+            {tab === "employees" && (
+              <button
+                className="btn-primary"
+                onClick={() => open({ kind: "employee" })}
+              >
+                + Thêm nhân viên
+              </button>
+            )}
+            {tab === "customers" && (
+              <button
+                className="btn-primary"
+                onClick={() => open({ kind: "customer" })}
+              >
+                + Thêm khách hàng
+              </button>
+            )}
           </div>
-        </header>
-        <main className="mx-auto max-w-[1500px] p-4 sm:p-8">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="eyebrow mb-2 text-brand">MEN / DAILY MANAGEMENT</p>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {tab === "overview"
-                  ? "Mỗi ngày, một bước tiến."
-                  : tabs.find((t) => t[0] === tab)?.[1]}
-              </h1>
-              <p className="mt-2 text-sm text-muted">
-                {tab === "overview"
-                  ? "Cùng nhìn lại hoạt động kinh doanh của cửa hàng."
-                  : tab === "sales"
-                    ? "Ghi nhận đóng góp. Theo dõi mục tiêu. Phát triển đội ngũ."
-                    : "Quản lý tập trung, cập nhật dễ dàng."}
-              </p>
+        </div>
+        <p className="mb-6 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs leading-relaxed text-blue-800">
+          Bản admin demo · 36 đơn mẫu, 4 nhân viên, 12 khách và{" "}
+          {PRODUCTS.length} SKU. Đơn từ cửa hàng trên trình duyệt này tự xuất
+          hiện tại đây. Chưa có đăng nhập hoặc máy chủ; chỉ dùng dữ liệu giả để
+          thử nghiệm.
+        </p>
+        {notice && (
+          <div
+            role="status"
+            className="mb-4 flex justify-between rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"
+          >
+            {notice}
+            <button onClick={() => setNotice("")} aria-label="Đóng thông báo">
+              ×
+            </button>
+          </div>
+        )}
+        {(tab === "overview" || tab === "sales") && (
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {metricCards.map(({ label, value, note, icon: CardIcon }) => (
+              <div key={label} className="panel !p-5">
+                <div className="flex items-center justify-between text-xs text-muted">
+                  {label}
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-brand">
+                    <CardIcon aria-hidden="true" className="h-4 w-4" />
+                  </span>
+                </div>
+                <p className="mt-4 text-2xl font-bold tracking-tight">
+                  {value}
+                </p>
+                <p className="mt-2 text-xs text-muted">{note}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {tab === "overview" && (
+          <>
+            <div className="mb-6 grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+              <section className="panel">
+                <h2 className="font-semibold">Nhịp kinh doanh</h2>
+                <p className="mt-1 text-xs text-muted">
+                  Doanh số hoàn tất · 7 ngày tính đến {formatDate(latest)}
+                </p>
+                <div
+                  className="mt-8 flex h-48 items-end gap-3 sm:gap-6"
+                  role="img"
+                  aria-label="Biểu đồ doanh số 7 ngày"
+                >
+                  {bars.map((b, i) => (
+                    <div
+                      key={b.day}
+                      className="flex flex-1 flex-col gap-2 text-center"
+                    >
+                      <span className="text-[10px] text-muted">
+                        {Math.round(b.value / 1000)}k
+                      </span>
+                      <div
+                        className={`rounded-t-lg ${i === 6 ? "bg-brand" : "bg-blue-200"}`}
+                        style={{
+                          height: Math.max(3, (b.value / maxBar) * 130),
+                        }}
+                        title={money(b.value)}
+                      />
+                      <span className="text-[10px] text-muted">
+                        {b.day.slice(8)}/{b.day.slice(5, 7)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="panel">
+                <h2 className="font-semibold">Đội ngũ nổi bật</h2>
+                <p className="mt-1 text-xs text-muted">
+                  Xếp hạng doanh số hoàn tất
+                </p>
+                <div className="mt-5 space-y-5">
+                  {ranking.slice(0, 3).map((e, i) => (
+                    <div key={e.id} className="flex items-center gap-3">
+                      <span className="text-xs text-muted">0{i + 1}</span>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-brand">
+                        {e.name
+                          .split(" ")
+                          .slice(-2)
+                          .map((s) => s[0])
+                          .join("")}
+                      </span>
+                      <div className="flex-1 text-xs">
+                        <strong>{e.name}</strong>
+                        <p className="mt-1 text-muted">{e.role}</p>
+                      </div>
+                      <strong className="text-xs">
+                        {money(employeeRevenue(scoped, e.id))}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="admin-action mt-6"
+                  onClick={() => navigate("sales")}
+                >
+                  Xem doanh số đội ngũ →
+                </button>
+              </section>
             </div>
-            <div className="flex gap-2">
-              {["overview", "orders", "sales"].includes(tab) && (
-                <select
-                  className="field !w-auto"
-                  aria-label="Khoảng thời gian"
-                  value={period}
+            <section className="admin-panel">
+              <div className="flex items-center justify-between p-5">
+                <h2 className="font-semibold">Đơn hàng gần đây</h2>
+                <button
+                  className="admin-action"
+                  onClick={() => navigate("orders")}
+                >
+                  Tất cả đơn hàng →
+                </button>
+              </div>
+              {orderRows(scoped.slice(0, 6))}
+            </section>
+          </>
+        )}
+        {tab !== "overview" && (
+          <section className="admin-panel">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5">
+              <h2 className="text-sm font-semibold">
+                {tab === "sales"
+                  ? "Bảng thành tích đội ngũ"
+                  : `Danh sách ${tabs.find((t) => t[0] === tab)?.[1].toLowerCase()}`}
+              </h2>
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                <input
+                  className="field sm:!w-60"
+                  aria-label="Tìm kiếm"
+                  placeholder="Tìm theo tên, mã, số điện thoại…"
+                  value={query}
                   onChange={(e) => {
-                    setPeriod(e.target.value);
+                    setQuery(e.target.value);
                     setPage(1);
                   }}
-                >
-                  <option value="all">Toàn bộ thời gian</option>
-                  <option value="7">7 ngày gần nhất</option>
-                  <option value="30">30 ngày gần nhất</option>
-                </select>
-              )}
-              {tab === "employees" && (
-                <button
-                  className="btn-primary"
-                  onClick={() => open({ kind: "employee" })}
-                >
-                  + Thêm nhân viên
-                </button>
-              )}
-              {tab === "customers" && (
-                <button
-                  className="btn-primary"
-                  onClick={() => open({ kind: "customer" })}
-                >
-                  + Thêm khách hàng
-                </button>
-              )}
-            </div>
-          </div>
-          <p className="mb-6 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs leading-relaxed text-blue-800">
-            Bản admin demo · 36 đơn mẫu, 4 nhân viên, 12 khách và{" "}
-            {PRODUCTS.length} SKU. Đơn từ cửa hàng trên trình duyệt này tự xuất
-            hiện tại đây. Chưa có đăng nhập hoặc máy chủ; chỉ dùng dữ liệu giả
-            để thử nghiệm.
-          </p>
-          {notice && (
-            <div
-              role="status"
-              className="mb-4 flex justify-between rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"
-            >
-              {notice}
-              <button onClick={() => setNotice("")} aria-label="Đóng thông báo">
-                ×
-              </button>
-            </div>
-          )}
-          {(tab === "overview" || tab === "sales") && (
-            <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {metricCards.map(({ label, value, note, icon: CardIcon }) => (
-                <div key={label} className="panel !p-5">
-                  <div className="flex items-center justify-between text-xs text-muted">
-                    {label}
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-brand">
-                      <CardIcon aria-hidden="true" className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <p className="mt-4 text-2xl font-bold tracking-tight">
-                    {value}
-                  </p>
-                  <p className="mt-2 text-xs text-muted">{note}</p>
-                </div>
-              ))}
-            </div>
-          )}
-          {tab === "overview" && (
-            <>
-              <div className="mb-6 grid gap-6 xl:grid-cols-[1.7fr_1fr]">
-                <section className="panel">
-                  <h2 className="font-semibold">Nhịp kinh doanh</h2>
-                  <p className="mt-1 text-xs text-muted">
-                    Doanh số hoàn tất · 7 ngày tính đến {formatDate(latest)}
-                  </p>
-                  <div
-                    className="mt-8 flex h-48 items-end gap-3 sm:gap-6"
-                    role="img"
-                    aria-label="Biểu đồ doanh số 7 ngày"
-                  >
-                    {bars.map((b, i) => (
-                      <div
-                        key={b.day}
-                        className="flex flex-1 flex-col gap-2 text-center"
-                      >
-                        <span className="text-[10px] text-muted">
-                          {Math.round(b.value / 1000)}k
-                        </span>
-                        <div
-                          className={`rounded-t-lg ${i === 6 ? "bg-brand" : "bg-blue-200"}`}
-                          style={{
-                            height: Math.max(3, (b.value / maxBar) * 130),
-                          }}
-                          title={money(b.value)}
-                        />
-                        <span className="text-[10px] text-muted">
-                          {b.day.slice(8)}/{b.day.slice(5, 7)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                <section className="panel">
-                  <h2 className="font-semibold">Đội ngũ nổi bật</h2>
-                  <p className="mt-1 text-xs text-muted">
-                    Xếp hạng doanh số hoàn tất
-                  </p>
-                  <div className="mt-5 space-y-5">
-                    {ranking.slice(0, 3).map((e, i) => (
-                      <div key={e.id} className="flex items-center gap-3">
-                        <span className="text-xs text-muted">0{i + 1}</span>
-                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-brand">
-                          {e.name
-                            .split(" ")
-                            .slice(-2)
-                            .map((s) => s[0])
-                            .join("")}
-                        </span>
-                        <div className="flex-1 text-xs">
-                          <strong>{e.name}</strong>
-                          <p className="mt-1 text-muted">{e.role}</p>
-                        </div>
-                        <strong className="text-xs">
-                          {money(employeeRevenue(scoped, e.id))}
-                        </strong>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    className="admin-action mt-6"
-                    onClick={() => navigate("sales")}
-                  >
-                    Xem doanh số đội ngũ →
-                  </button>
-                </section>
-              </div>
-              <section className="admin-panel">
-                <div className="flex items-center justify-between p-5">
-                  <h2 className="font-semibold">Đơn hàng gần đây</h2>
-                  <button
-                    className="admin-action"
-                    onClick={() => navigate("orders")}
-                  >
-                    Tất cả đơn hàng →
-                  </button>
-                </div>
-                {orderRows(scoped.slice(0, 6))}
-              </section>
-            </>
-          )}
-          {tab !== "overview" && (
-            <section className="admin-panel">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5">
-                <h2 className="text-sm font-semibold">
-                  {tab === "sales"
-                    ? "Bảng thành tích đội ngũ"
-                    : `Danh sách ${tabs.find((t) => t[0] === tab)?.[1].toLowerCase()}`}
-                </h2>
-                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                  <input
-                    className="field sm:!w-60"
-                    aria-label="Tìm kiếm"
-                    placeholder="Tìm theo tên, mã, số điện thoại…"
-                    value={query}
+                />
+                {(tab === "orders" || tab === "products") && (
+                  <select
+                    className="field !w-auto"
+                    aria-label="Bộ lọc"
+                    value={filter}
                     onChange={(e) => {
-                      setQuery(e.target.value);
+                      setFilter(e.target.value);
                       setPage(1);
                     }}
-                  />
-                  {(tab === "orders" || tab === "products") && (
-                    <select
-                      className="field !w-auto"
-                      aria-label="Bộ lọc"
-                      value={filter}
-                      onChange={(e) => {
-                        setFilter(e.target.value);
-                        setPage(1);
-                      }}
-                    >
-                      <option value="all">
-                        {tab === "orders" ? "Mọi trạng thái" : "Mọi danh mục"}
-                      </option>
-                      {tab === "orders"
-                        ? Object.entries(STATUS_LABELS).map(([k, v]) => (
-                            <option key={k} value={k}>
-                              {v}
-                            </option>
-                          ))
-                        : CATEGORIES.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                    </select>
-                  )}
-                </div>
+                  >
+                    <option value="all">
+                      {tab === "orders" ? "Mọi trạng thái" : "Mọi danh mục"}
+                    </option>
+                    {tab === "orders"
+                      ? Object.entries(STATUS_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))
+                      : CATEGORIES.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                  </select>
+                )}
               </div>
-              {tab === "orders" && (
-                <>
-                  {orderRows(slice(foundOrders))}
-                  {pager(foundOrders.length)}
-                </>
-              )}
-              {(tab === "employees" || tab === "sales") && (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Nhân viên</th>
-                          <th>
-                            {tab === "employees" ? "Liên hệ" : "Đơn hoàn tất"}
-                          </th>
-                          <th>Doanh số thuần</th>
-                          <th>Mục tiêu tham chiếu</th>
-                          <th>Trạng thái</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {foundEmployees.map((e) => {
-                          const amount = employeeRevenue(scoped, e.id);
-                          const percent = e.target
-                            ? Math.round((amount / e.target) * 100)
-                            : 0;
-                          return (
-                            <tr key={e.id}>
-                              <td>
-                                <strong>{e.name}</strong>
-                                <small>
-                                  {e.id} · {e.role}
-                                </small>
-                              </td>
-                              <td>
-                                {tab === "employees"
-                                  ? e.phone
-                                  : done.filter((o) => o.employeeId === e.id)
-                                      .length}
-                              </td>
-                              <td className="whitespace-nowrap font-semibold text-brand">
-                                {money(amount)}
-                              </td>
-                              <td>
-                                <p className="whitespace-nowrap text-xs">
-                                  {money(e.target)} · {percent}%
-                                </p>
-                                <div className="mt-2 h-1.5 w-32 overflow-hidden rounded bg-slate-100">
-                                  <div
-                                    className="h-full bg-brand"
-                                    style={{
-                                      width: `${Math.min(100, percent)}%`,
-                                    }}
-                                  />
-                                </div>
-                              </td>
-                              <td>
-                                <span
-                                  className={`admin-badge ${e.active ? "status-completed" : "status-cancelled"}`}
-                                >
-                                  {e.active ? "Đang làm việc" : "Tạm nghỉ"}
-                                </span>
-                              </td>
-                              <td>
-                                <button
-                                  className="admin-action"
-                                  onClick={() =>
-                                    open({ kind: "employee", value: e })
-                                  }
-                                >
-                                  Chỉnh sửa
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {!foundEmployees.length && <Empty />}
-                  </div>
-                  <p className="admin-footnote">
-                    Doanh số = tiền hàng sau giảm giá của đơn hoàn tất, không
-                    gồm phí giao hàng. Đơn hủy tự loại khỏi doanh số và điểm.
-                    Mục tiêu là giá trị tham chiếu cho khoảng thời gian đã chọn.
-                  </p>
-                </>
-              )}
-              {tab === "products" && (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Sản phẩm / SKU</th>
-                          <th>Danh mục</th>
-                          <th>Giá admin</th>
-                          <th>Tồn kho admin</th>
-                          <th>Trạng thái</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {slice(foundProducts).map((p) => {
-                          const v = data.overrides[p.id] ?? {
-                            price: p.price,
-                            stock: p.stock,
-                            active: true,
-                          };
-                          return (
-                            <tr key={p.id}>
-                              <td>
-                                <strong className="block max-w-72">
-                                  {p.title}
-                                </strong>
-                                <small>{p.id}</small>
-                              </td>
-                              <td className="text-xs">
-                                {
-                                  CATEGORIES.find((c) => c.id === p.categoryId)
-                                    ?.name
-                                }
-                              </td>
-                              <td className="whitespace-nowrap font-semibold">
-                                {money(v.price)}
-                              </td>
-                              <td
-                                className={v.stock < 10 ? "text-amber-600" : ""}
-                              >
-                                {v.stock}
-                              </td>
-                              <td>
-                                <span
-                                  className={`admin-badge ${v.active ? "status-completed" : "status-cancelled"}`}
-                                >
-                                  {v.active ? "Đang kinh doanh" : "Tạm ngưng"}
-                                </span>
-                              </td>
-                              <td>
-                                <button
-                                  className="admin-action"
-                                  onClick={() =>
-                                    open({ kind: "product", id: p.id })
-                                  }
-                                >
-                                  Chỉnh sửa
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {!foundProducts.length && <Empty />}
-                  </div>
-                  {pager(foundProducts.length)}
-                  <p className="admin-footnote">
-                    Giá và tồn kho tại đây là dữ liệu admin demo; chưa đồng bộ
-                    với catalog và checkout cửa hàng.
-                  </p>
-                </>
-              )}
-              {tab === "customers" && (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Khách hàng</th>
-                          <th>Số điện thoại</th>
-                          <th>Số đơn</th>
-                          <th>Đã chi tiêu</th>
-                          <th>Điểm thưởng</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {slice(foundCustomers).map((c) => (
-                          <tr key={c.phone}>
+            </div>
+            {tab === "orders" && (
+              <>
+                {orderRows(slice(foundOrders))}
+                {pager(foundOrders.length)}
+              </>
+            )}
+            {(tab === "employees" || tab === "sales") && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Nhân viên</th>
+                        <th>
+                          {tab === "employees" ? "Liên hệ" : "Đơn hoàn tất"}
+                        </th>
+                        <th>Doanh số thuần</th>
+                        <th>Mục tiêu tham chiếu</th>
+                        <th>Trạng thái</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {foundEmployees.map((e) => {
+                        const amount = employeeRevenue(scoped, e.id);
+                        const percent = e.target
+                          ? Math.round((amount / e.target) * 100)
+                          : 0;
+                        return (
+                          <tr key={e.id}>
                             <td>
-                              <strong>{c.name}</strong>
-                              <small>{c.email || "Chưa có email"}</small>
-                            </td>
-                            <td>{c.phone}</td>
-                            <td>{c.orders}</td>
-                            <td className="whitespace-nowrap font-semibold">
-                              {money(c.spent)}
+                              <strong>{e.name}</strong>
+                              <small>
+                                {e.id} · {e.role}
+                              </small>
                             </td>
                             <td>
-                              <span className="admin-badge status-shipping items-center gap-1.5">
-                                <FaStar
-                                  aria-hidden="true"
-                                  className="h-2.5 w-2.5"
+                              {tab === "employees"
+                                ? e.phone
+                                : done.filter((o) => o.employeeId === e.id)
+                                    .length}
+                            </td>
+                            <td className="whitespace-nowrap font-semibold text-brand">
+                              {money(amount)}
+                            </td>
+                            <td>
+                              <p className="whitespace-nowrap text-xs">
+                                {money(e.target)} · {percent}%
+                              </p>
+                              <div className="mt-2 h-1.5 w-32 overflow-hidden rounded bg-slate-100">
+                                <div
+                                  className="h-full bg-brand"
+                                  style={{
+                                    width: `${Math.min(100, percent)}%`,
+                                  }}
                                 />
-                                {c.points}
+                              </div>
+                            </td>
+                            <td>
+                              <span
+                                className={`admin-badge ${e.active ? "status-completed" : "status-cancelled"}`}
+                              >
+                                {e.active ? "Đang làm việc" : "Tạm nghỉ"}
                               </span>
                             </td>
                             <td>
                               <button
                                 className="admin-action"
                                 onClick={() =>
-                                  open({ kind: "customer", value: c })
+                                  open({ kind: "employee", value: e })
                                 }
                               >
-                                Hồ sơ
+                                Chỉnh sửa
                               </button>
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {!foundCustomers.length && <Empty />}
-                  </div>
-                  {pager(foundCustomers.length)}
-                  <p className="admin-footnote">
-                    Mỗi số điện thoại là một hồ sơ. Tích 1 điểm / 10.000đ tiền
-                    hàng sau giảm giá của đơn hoàn tất, làm tròn xuống theo từng
-                    đơn.
-                  </p>
-                </>
-              )}
-            </section>
-          )}
-          <footer className="mt-8 flex justify-between text-[10px] text-muted">
-            <span>© MEN / DAILY · Quản trị cửa hàng</span>
-            <span>Dữ liệu mẫu tháng 10/2026</span>
-          </footer>
-        </main>
-      </div>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {!foundEmployees.length && <Empty />}
+                </div>
+                <p className="admin-footnote">
+                  Doanh số = tiền hàng sau giảm giá của đơn hoàn tất, không gồm
+                  phí giao hàng. Đơn hủy tự loại khỏi doanh số và điểm. Mục tiêu
+                  là giá trị tham chiếu cho khoảng thời gian đã chọn.
+                </p>
+              </>
+            )}
+            {tab === "products" && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Sản phẩm / SKU</th>
+                        <th>Danh mục</th>
+                        <th>Giá admin</th>
+                        <th>Tồn kho admin</th>
+                        <th>Trạng thái</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slice(foundProducts).map((p) => {
+                        const v = data.overrides[p.id] ?? {
+                          price: p.price,
+                          stock: p.stock,
+                          active: true,
+                        };
+                        return (
+                          <tr key={p.id}>
+                            <td>
+                              <Link
+                                href={`/admin/san-pham/${encodeURIComponent(p.id)}`}
+                                className="admin-action block max-w-72 font-semibold"
+                              >
+                                {p.title}
+                              </Link>
+                              <small>{p.id}</small>
+                            </td>
+                            <td className="text-xs">
+                              {
+                                CATEGORIES.find((c) => c.id === p.categoryId)
+                                  ?.name
+                              }
+                            </td>
+                            <td className="whitespace-nowrap font-semibold">
+                              {money(v.price)}
+                            </td>
+                            <td
+                              className={v.stock < 10 ? "text-amber-600" : ""}
+                            >
+                              {v.stock}
+                            </td>
+                            <td>
+                              <span
+                                className={`admin-badge ${v.active ? "status-completed" : "status-cancelled"}`}
+                              >
+                                {v.active ? "Đang kinh doanh" : "Tạm ngưng"}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="flex items-center justify-end gap-8 whitespace-nowrap">
+                                <Link
+                                  href={`/admin/san-pham/${encodeURIComponent(p.id)}`}
+                                  className="admin-action"
+                                >
+                                  Chỉnh sửa
+                                </Link>
+                                <button
+                                  type="button"
+                                  className="admin-action inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-blue-50"
+                                  aria-label={`Chỉnh sửa nhanh ${p.id}`}
+                                  title="Chỉnh sửa nhanh"
+                                  onClick={() =>
+                                    open({ kind: "product", id: p.id })
+                                  }
+                                >
+                                  <FaArrowUpRightFromSquare aria-hidden="true" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {!foundProducts.length && <Empty />}
+                </div>
+                {pager(foundProducts.length)}
+                <p className="admin-footnote">
+                  Giá và tồn kho tại đây là dữ liệu admin demo; chưa đồng bộ với
+                  catalog và checkout cửa hàng.
+                </p>
+              </>
+            )}
+            {tab === "customers" && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Khách hàng</th>
+                        <th>Số điện thoại</th>
+                        <th>Số đơn</th>
+                        <th>Đã chi tiêu</th>
+                        <th>Điểm thưởng</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slice(foundCustomers).map((c) => (
+                        <tr key={c.phone}>
+                          <td>
+                            <strong>{c.name}</strong>
+                            <small>{c.email || "Chưa có email"}</small>
+                          </td>
+                          <td>{c.phone}</td>
+                          <td>{c.orders}</td>
+                          <td className="whitespace-nowrap font-semibold">
+                            {money(c.spent)}
+                          </td>
+                          <td>
+                            <span className="admin-badge status-shipping items-center gap-1.5">
+                              <FaStar
+                                aria-hidden="true"
+                                className="h-2.5 w-2.5"
+                              />
+                              {c.points}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              className="admin-action"
+                              onClick={() =>
+                                open({ kind: "customer", value: c })
+                              }
+                            >
+                              Hồ sơ
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!foundCustomers.length && <Empty />}
+                </div>
+                {pager(foundCustomers.length)}
+                <p className="admin-footnote">
+                  Mỗi số điện thoại là một hồ sơ. Tích 1 điểm / 10.000đ tiền
+                  hàng sau giảm giá của đơn hoàn tất, làm tròn xuống theo từng
+                  đơn.
+                </p>
+              </>
+            )}
+          </section>
+        )}
+        <footer className="mt-8 flex justify-between text-[10px] text-muted">
+          <span>© MEN / DAILY · Quản trị cửa hàng</span>
+          <span>Dữ liệu mẫu tháng 10/2026</span>
+        </footer>
+      </main>
       {modal && (
         <div
           className="admin-overlay"
@@ -1482,7 +1348,7 @@ export default function AdminView() {
           </section>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
 function Empty() {
